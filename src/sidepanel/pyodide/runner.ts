@@ -14,6 +14,8 @@ export interface RawTraceOutput {
   stdout: string;
   args: SerializedValue[];
   entry: string | null;
+  stringParams: string[];
+  indexVars: string[];
 }
 
 export type Coercion = "raw" | "array" | "linked_list" | "tree";

@@ -65,6 +65,56 @@ print("\n=== invert_tree ===")
 print("steps:", len(out["steps"]), "result kind:", out["result"]["kind"])
 print("root val:", out["result"]["root"]["value"]["value"], "left val:", out["result"]["root"]["left"]["value"]["value"])
 
+# 6) sliding window (string as sequence + set aux structure)
+window = '''
+class Solution:
+    def lengthOfLongestSubstring(self, s):
+        seen = set()
+        l = 0
+        best = 0
+        for r in range(len(s)):
+            while s[r] in seen:
+                seen.remove(s[l])
+                l += 1
+            seen.add(s[r])
+            best = max(best, r - l + 1)
+        return best
+'''
+out = json.loads(
+    tracer.run_trace(window, "lengthOfLongestSubstring", json.dumps(["abcabcbb"]), json.dumps(["string"]))
+)
+print("\n=== sliding_window ===")
+print("steps:", len(out["steps"]), "result:", out["result"])
+print("arg0 kind:", out["args"][0]["kind"], "chars:", out["args"][0].get("chars"))
+mid = out["steps"][len(out["steps"]) // 2]["locals"]
+print("mid locals:", {k: v.get("kind") for k, v in mid.items()})
+print("seen kind:", mid.get("seen", {}).get("kind"))
+
+# 7) expand around center (nested helper -> `s` is a closure var, not a local)
+palin = '''
+class Solution:
+    def longestPalindrome(self, s):
+        best = ""
+        def expand(i, j):
+            while i >= 0 and j < len(s) and s[i] == s[j]:
+                i -= 1
+                j += 1
+            return s[i + 1:j]
+        for k in range(len(s)):
+            for cand in (expand(k, k), expand(k, k + 1)):
+                if len(cand) > len(best):
+                    best = cand
+        return best
+'''
+out = json.loads(
+    tracer.run_trace(palin, "longestPalindrome", json.dumps(["babad"]), json.dumps(["string"]))
+)
+print("\n=== expand_center ===")
+print("steps:", len(out["steps"]), "result:", out["result"])
+helper = [st for st in out["steps"] if "i" in st["locals"] and "j" in st["locals"]]
+print("helper frames:", len(helper), "depths:", sorted({st["depth"] for st in helper}))
+print("s visible in helper frame:", "s" in helper[0]["locals"] if helper else None)
+
 # 4) exception handling
 boom = '''
 def solve(nums):

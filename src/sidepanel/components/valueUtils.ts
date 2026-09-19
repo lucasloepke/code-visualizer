@@ -13,6 +13,20 @@ export interface NamedLinkedList {
   /** node id -> pointer variable names currently referencing it. */
   pointerByNodeId: Map<number, string[]>;
 }
+export interface NamedString {
+  name: string;
+  chars: string[];
+  /** Index variables (from AST analysis) that currently point into this string. */
+  pointers: { name: string; index: number }[];
+  /** Inclusive span between the lowest and highest pointer, or null if <2. */
+  window: { start: number; end: number } | null;
+}
+
+export interface NamedAux {
+  name: string;
+  kind: "map" | "set";
+  entries: { key: string; value?: string }[];
+}
 
 export interface NamedTree {
   name: string;
@@ -34,15 +48,31 @@ export function primitiveText(v: SerializedValue | undefined): string {
       return v.nodes.map((n) => primitiveText(n.value)).join(" → ");
     case "tree":
       return "<tree>";
+    case "string":
+      return JSON.stringify(v.value);
+    case "map":
+      return `{${v.entries
+        .map((e) => `${primitiveText(e.key)}: ${primitiveText(e.value)}`)
+        .join(", ")}}`;
+    case "set":
+      return v.items.length === 0 ? "set()" : `{${v.items.map(primitiveText).join(", ")}}`;
   }
 }
 
 /** Integer-valued locals that look like index pointers. */
-function integerPointers(step: TraceStep): { name: string; value: number }[] {
+function integerPointers(
+  step: TraceStep,
+  indexVars?: string[],
+): { name: string; value: number }[] {
   const out: { name: string; value: number }[] = [];
+  // Prefer AST-derived index vars when available: they distinguish a real index
+  // from a counter that happens to be in range (`best` in a sliding window).
+  const known = indexVars && indexVars.length > 0 ? new Set(indexVars) : null;
   for (const [name, v] of Object.entries(step.locals)) {
     if (v.kind === "primitive" && typeof v.value === "number" && Number.isInteger(v.value)) {
-      if (POINTER_NAME.test(name)) out.push({ name, value: v.value });
+      if (known ? known.has(name) : POINTER_NAME.test(name)) {
+        out.push({ name, value: v.value });
+      }
     }
   }
   return out;
@@ -59,8 +89,8 @@ function nodePointers(step: TraceStep): { name: string; id: number }[] {
   return out;
 }
 
-export function extractArrays(step: TraceStep): NamedArray[] {
-  const ptrs = integerPointers(step);
+export function extractArrays(step: TraceStep, indexVars?: string[]): NamedArray[] {
+  const ptrs = integerPointers(step, indexVars);
   const arrays: NamedArray[] = [];
   for (const [name, v] of Object.entries(step.locals)) {
     if (v.kind === "array") {
@@ -100,4 +130,42 @@ export function extractTrees(step: TraceStep): NamedTree[] {
     if (v.kind === "tree" && v.root) trees.push({ name, root: v.root });
   }
   return trees;
+}
+
+export function extractStrings(step: TraceStep, indexVars?: string[]): NamedString[] {
+  const ptrs = integerPointers(step, indexVars);
+  const out: NamedString[] = [];
+  for (const [name, v] of Object.entries(step.locals)) {
+    if (v.kind !== "string" || !v.chars || v.chars.length < 2) continue;
+    const pointers = ptrs
+      .filter((p) => p.value >= 0 && p.value < v.chars!.length)
+      .map((p) => ({ name: p.name, index: p.value }));
+    const idxs = pointers.map((p) => p.index);
+    const window =
+      idxs.length >= 2
+        ? { start: Math.min(...idxs), end: Math.max(...idxs) }
+        : null;
+    out.push({ name, chars: v.chars, pointers, window });
+  }
+  // Longest first: the input string beats incidental slices like `best`/`cand`.
+  return out.sort((a, b) => b.chars.length - a.chars.length).slice(0, 2);
+}
+
+export function extractAux(step: TraceStep): NamedAux[] {
+  const out: NamedAux[] = [];
+  for (const [name, v] of Object.entries(step.locals)) {
+    if (v.kind === "map") {
+      out.push({
+        name,
+        kind: "map",
+        entries: v.entries.map((e) => ({
+          key: primitiveText(e.key),
+          value: primitiveText(e.value),
+        })),
+      });
+    } else if (v.kind === "set") {
+      out.push({ name, kind: "set", entries: v.items.map((x) => ({ key: primitiveText(x) })) });
+    }
+  }
+  return out;
 }
