@@ -1,5 +1,7 @@
 # LeetVision — Chrome Extension (MV3)
 
+Dynamically visualize LeetCode / NeetCode executions, step-by-step.
+
 Scrapes your Python solution + visible example test cases from a coding-problem
 page (NeetCode is the primary target, LeetCode secondary), runs it **entirely
 client-side** with a bundled [Pyodide](https://pyodide.org) runtime, traces
@@ -19,15 +21,15 @@ Then in Chrome:
 
 1. Go to `chrome://extensions`, enable **Developer mode**.
 2. **Load unpacked** → select the `dist/` folder.
-3. Open a `neetcode.io/practice` problem (or `leetcode.com/problems/...`).
+3. Open a `neetcode.io` practice problem (or `leetcode.com/problems/...`).
 4. Click the extension icon to open the side panel — it **auto-scrapes** the
    active tab (editor code + visible examples) and runs the visualization.
 5. Use the step controls to play / pause / scrub through the trace.
 
 The **↻** button re-scrapes the active tab. The **⋮ menu** (top-right) holds
-fallbacks: a **Debug mode** toggle that reveals the raw code / test-case editor,
-and a list of **built-in examples** you can load without any website — useful for
-a quick demo and for verifying the pipeline.
+fallbacks: a **Debug mode** toggle that reveals the raw code / test-case editor
+(and a manual **Run** button), plus a list of **built-in examples** you can load
+without any website — useful for a quick demo and for verifying the pipeline.
 
 ## Architecture
 
@@ -35,11 +37,11 @@ a quick demo and for verifying the pipeline.
 |---|---|---|
 | Side panel UI | `src/sidepanel/` (React + Framer Motion) | `chrome.sidePanel` — persists when focus returns to the coding tab. |
 | Execution engine | Pyodide (Python→WASM) | **Bundled at build time** into `dist/pyodide/`. MV3 CSP blocks fetching remote scripts, so it must ship in the package. `content_security_policy` includes `wasm-unsafe-eval`. |
-| Tracer | `src/python/tracer.py` | `sys.settrace` captures line/return/exception events → line no, deep-copied `locals()`, stack depth, event type. Caps at **500 steps** (→ "infinite loop suspected"). Emits the whole run as **one JSON array**. |
-| Serializer | `src/python/tracer.py` | Only the shapes the demos need: primitive, array, singly-linked list, binary tree (cycle-guarded). Structures are walked into plain dicts/lists before leaving Python. |
+| Tracer | `src/python/tracer.py` | `sys.settrace` captures line/return/exception events → line no, deep-copied `locals()`, stack depth, event type. Caps at **500 steps** (→ "infinite loop suspected"). Emits the whole run as **one JSON array**. Preloads common LeetCode/NeetCode names (`deque`, `defaultdict`, `Counter`, heapq helpers, etc.) so scraped solutions that omit imports still run. |
+| Serializer | `src/python/tracer.py` | Primitives, strings, arrays, dicts/hashmaps, sets, singly-linked lists, and binary trees (cycle-guarded). Everything else falls back to a `repr`. |
 | Scraping | `src/content/` | `SiteAdapter` interface + `NeetCodeAdapter` (primary) and `LeetCodeAdapter` (secondary). Picked via `matches(location.href)`. |
 | Page bridge | `src/content/page-bridge.ts` | Injected into the page's main world to read the editor's model (Monaco / CodeMirror) off `window`, since content scripts run in an isolated world. |
-| Service worker | `src/background.ts` | Only opens the side panel on toolbar click. |
+| Service worker | `src/background.ts` | Opens the side panel on toolbar click. |
 
 ### Build system
 `npm run build` runs `scripts/build.mjs`, which:
@@ -65,12 +67,9 @@ interface SiteAdapter {
 Add a site by implementing this and registering it in `src/content/index.ts`.
 Nothing downstream (tracer, serializer, UI) changes.
 
-### ⚠️ Empirical DOM caveat (must confirm on a live page)
+### Scraping notes
 
-The instructions were explicit that NeetCode's editor DOM must be confirmed
-empirically rather than assumed from LeetCode. This build takes the **robust,
-layered** approach the brief called for, but the exact live selectors were not
-verifiable from the build environment, so the adapters are defensive:
+Adapters are defensive and layered:
 
 - **Code:** primary path reads the editor model via the page bridge
   (`window.monaco.editor.getModels()[…].getValue()`, with a CodeMirror
@@ -79,33 +78,39 @@ verifiable from the build environment, so the adapters are defensive:
 - **Test cases:** scraped by scanning the description text for `Input:` / `Output:`
   pairs (format-driven, not class-name-driven, so it survives DOM churn on both
   sites). If nothing is found it **warns** rather than failing silently.
-- **Fallback:** the side panel always lets you paste code / edit test cases
-  manually, so a selector mismatch never blocks a demo.
-
-**Action item when you have a live NeetCode page open:** confirm (a) whether
-`window.monaco` is exposed and (b) the container that holds the Example blocks,
-then tighten `src/content/adapters/neetcode.ts`. Any deviation from the
-assumptions above should be reflected there — the warnings in the UI tell you
-when a fallback path was taken.
+- **Fallback:** turn on **Debug mode** in the ⋮ menu to paste / edit code and
+  test cases manually if a selector path misses.
 
 ## Test cases → Python objects
 
-Scraped inputs like `nums = [2,7,11,15], target = 9` or `head = [1,2,3,4,5]` are
-parsed into positional args. Each arg is coerced into the right structure based
-on the parameter name (`head`/`l1`/`lists` → linked list, `root` → tree, other
-arrays → array), matching LeetCode/NeetCode array notation. See
-`src/sidepanel/pyodide/problem.ts`.
+Scraped inputs like `nums = [2,7,11,15], target = 9`, `head = [1,2,3,4,5]`, or
+`root = [1,2,3,4,5,6,7]` are parsed into positional args. Each arg is coerced
+into the right structure based on the parameter name (`head`/`l1`/`lists` →
+linked list, `root` → tree, other arrays → array), matching LeetCode/NeetCode
+array notation. See `src/sidepanel/pyodide/problem.ts`.
 
-## What's implemented (per the MVP build order)
+Pass/fail compares the traced return value to scraped expected output:
+
+- **Trees** are compared as level-order arrays (same notation as the examples).
+- **List-of-lists** results (e.g. Group Anagrams) allow any order of groups and
+  of items within a group.
+- Empty tree `None` matches expected `[]`.
+
+## What's implemented
 
 1. ✅ Pyodide bundled + running arbitrary user Python with a `sys.settrace` step array.
-2. ✅ `NeetCodeAdapter` scraping (code + visible test cases) with a page-context bridge.
-3. ✅ Array / two-pointer visualization.
-4. ✅ Linked-list visualization (reversal animates via id-keyed Framer Motion `layout`).
-5. ✅ Stretch: binary-tree view + `LeetCodeAdapter`.
+2. ✅ `NeetCodeAdapter` / `LeetCodeAdapter` scraping with a page-context bridge.
+3. ✅ Auto-scrape + auto-run when the side panel opens; ↻ to re-scrape.
+4. ✅ Array / two-pointer, hashmap/dict, string (sliding window), set, linked-list,
+   and binary-tree visualizations.
+5. ✅ Recursive calls keep the stage filled via stack-aware `vizLocals` (so leaf
+   frames like `root is None` still show the outer tree).
+6. ✅ LeetCode-style builtin preload (`deque`, `defaultdict`, …) without requiring
+   imports in scraped code.
 
-Verified end-to-end in a real browser (Pyodide boots from bundled files; Two
-Sum, Valid Palindrome, Reverse Linked List, Invert Tree all run and animate).
+Verified end-to-end in a real browser on problems like Two Sum, Valid Palindrome,
+Reverse Linked List, Invert Tree, Group Anagrams, and sliding-window string
+problems.
 
 ## Out of scope
 Non-Python languages · hidden/submit-mode test cases · any backend · multi-run history.
