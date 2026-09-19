@@ -24,6 +24,7 @@ export function App() {
   const [scraping, setScraping] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [canTest, setCanTest] = useState(true);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
@@ -95,8 +96,14 @@ export function App() {
   );
 
   const runAll = useCallback(
-    () => runWith({ code, signature, testCases }),
-    [runWith, code, signature, testCases],
+    () => {
+      if (!canTest) {
+        setMessage("Navigate to questions tab to begin code visualization.");
+        return;
+      }
+      void runWith({ code, signature, testCases });
+    },
+    [runWith, code, signature, testCases, canTest],
   );
 
   const doScrape = useCallback(async () => {
@@ -105,6 +112,12 @@ export function App() {
     setScraping(true);
     try {
       const result = await scrapeActiveTab();
+      const questionRoute = result.site !== "neetcode" || /\/question(?:\/|$)/.test(new URL(result.url).pathname);
+      setCanTest(questionRoute);
+      setRuns(null);
+      setActiveRun(0);
+      setStepIndex(0);
+      setPlaying(false);
       const nextCode = result.code || code;
       const nextSignature = result.functionSignature || signature;
       const nextTestCases = result.testCases.length ? result.testCases : testCases;
@@ -113,13 +126,15 @@ export function App() {
       if (result.testCases.length) setTestCases(result.testCases);
       setWarnings(result.warnings);
       setMessage(
-        `Scraped ${result.site} — ${result.testCases.length} test case(s)` +
-          (result.code ? "" : " (no code found)"),
+        questionRoute
+          ? `Scraped ${result.site} — ${result.testCases.length} test case(s)` +
+            (result.code ? "" : " (no code found)")
+          : "Go to the Questions screen to test these examples.",
       );
       setScraping(false);
       // Kick off the visualization immediately with the freshly scraped values
       // (state setters above haven't flushed yet, so pass them explicitly).
-      if (result.code) {
+      if (result.code && questionRoute) {
         await runWith({ code: nextCode, signature: nextSignature, testCases: nextTestCases });
       }
     } catch (err) {
