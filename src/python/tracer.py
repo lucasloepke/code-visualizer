@@ -236,6 +236,50 @@ def serialize_locals(frame_locals):
     return out
 
 
+_VISUAL_KINDS = frozenset({"tree", "linked_list", "array", "map", "string", "set"})
+
+
+def _is_visual(ser):
+    """True if this serialized value is worth drawing on the stage."""
+    kind = ser.get("kind")
+    if kind not in _VISUAL_KINDS:
+        return False
+    if kind == "tree" and not ser.get("root"):
+        return False
+    if kind == "string" and not ser.get("chars"):
+        return False
+    return True
+
+
+def serialize_viz_locals(frame):
+    """Structural locals for the stage, filled from the user call stack.
+
+    Recursive leaf frames often only have `root is None` — nothing to draw.
+    Walk outer USER_FILE frames so the parent/original tree (or list) still
+    appears. Inner non-empty values win when the same name exists at multiple
+    depths.
+    """
+    frames = []
+    f = frame
+    while f is not None:
+        if f.f_code.co_filename == USER_FILE:
+            frames.append(f)
+        f = f.f_back
+    frames.reverse()  # outermost → innermost
+    out = {}
+    for fr in frames:
+        for k, v in list(fr.f_locals.items()):
+            if _skip_local(k, v):
+                continue
+            try:
+                ser = serialize(v)
+            except Exception:
+                continue
+            if _is_visual(ser):
+                out[k] = ser
+    return out
+
+
 # ---- Tracing --------------------------------------------------------------
 class _StepCap(Exception):
     """Raised to abort a run once MAX_STEPS is exceeded (suspected infinite loop)."""
@@ -388,6 +432,7 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
                     "depth": base_depth(frame),
                     "func": frame.f_code.co_name,
                     "locals": serialize_locals(frame.f_locals),
+                    "vizLocals": serialize_viz_locals(frame),
                     "event": "line",
                 }
             )
@@ -399,6 +444,7 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
                     "depth": base_depth(frame),
                     "func": frame.f_code.co_name,
                     "locals": serialize_locals(frame.f_locals),
+                    "vizLocals": serialize_viz_locals(frame),
                     "event": "return",
                     "returnValue": serialize(arg),
                 }
@@ -412,6 +458,7 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
                     "depth": base_depth(frame),
                     "func": frame.f_code.co_name,
                     "locals": serialize_locals(frame.f_locals),
+                    "vizLocals": serialize_viz_locals(frame),
                     "event": "exception",
                     "error": {"type": exc_type.__name__, "message": str(exc_value), "line": frame.f_lineno},
                 }
