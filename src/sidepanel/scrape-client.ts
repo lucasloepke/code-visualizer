@@ -13,12 +13,23 @@ export async function scrapeActiveTab(): Promise<ScrapeResult> {
   let resp: ContentToPanelMessage;
   try {
     resp = (await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_REQUEST" })) as ContentToPanelMessage;
-  } catch {
-    throw new Error(
-      "Content script not reachable. Reload the problem tab after installing the extension.",
-    );
+  } catch (error) {
+    if (!isMissingContentScript(error)) throw new Error(String(error));
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
+      resp = (await chrome.tabs.sendMessage(tab.id, { type: "SCRAPE_REQUEST" })) as ContentToPanelMessage;
+    } catch {
+      throw new Error(
+        "Content script not reachable. Reload the problem tab after installing the extension.",
+      );
+    }
   }
   if (!resp) throw new Error("No response from the page.");
   if (resp.type === "SCRAPE_ERROR") throw new Error(resp.error);
   return resp.result;
+}
+
+function isMissingContentScript(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /receiving end does not exist|could not establish connection/i.test(message);
 }
