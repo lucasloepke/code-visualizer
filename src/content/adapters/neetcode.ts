@@ -47,11 +47,38 @@ export class NeetCodeAdapter implements SiteAdapter {
   }
 
   private readMonacoDom(): string {
-    const lines = document.querySelectorAll<HTMLElement>(".monaco-editor .view-lines .view-line");
-    if (lines.length === 0) return "";
-    return Array.from(lines)
-      .map((l) => l.textContent?.replace(/\u00a0/g, " ") ?? "")
-      .join("\n");
+    const editors = Array.from(document.querySelectorAll<HTMLElement>(".monaco-editor"))
+      .map((editor) => ({
+        editor,
+        lines: Array.from(editor.querySelectorAll<HTMLElement>(".view-lines .view-line")),
+      }))
+      .filter(({ editor, lines }) => editor.getBoundingClientRect().width > 0 && lines.length > 0)
+      .sort((a, b) => b.lines.length - a.lines.length);
+    const selected = editors[0];
+    if (!selected) return "";
+
+    const rows = selected.lines.map((line) => ({
+      top: line.getBoundingClientRect().top,
+      text: line.textContent?.replace(/\u00a0/g, " ") ?? "",
+    }));
+    const starts = Array.from(selected.editor.querySelectorAll<HTMLElement>(".line-numbers"))
+      .map((number) => ({
+        top: number.getBoundingClientRect().top,
+        text: number.textContent?.trim() ?? "",
+        height: number.getBoundingClientRect().height,
+      }))
+      .filter(({ text, height }) => /^\d+$/.test(text) && height > 0)
+      .sort((a, b) => a.top - b.top);
+
+    if (starts.length === 0) return rows.map(({ text }) => text).join("\n");
+
+    const logicalLines: string[] = [];
+    for (const [index, start] of starts.entries()) {
+      const nextTop = starts[index + 1]?.top ?? Number.POSITIVE_INFINITY;
+      const wrappedRows = rows.filter(({ top }) => top >= start.top && top < nextTop);
+      logicalLines.push(wrappedRows.map(({ text }) => text).join(""));
+    }
+    return logicalLines.join("\n");
   }
 
   async getTestCases(): Promise<TestCase[]> {
