@@ -6,9 +6,7 @@ export async function scrapeActiveTab(): Promise<ScrapeResult> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error("No active tab to scrape.");
   if (!/^https:\/\/(neetcode\.io|leetcode\.com)/.test(tab.url ?? "")) {
-    throw new Error(
-      "Open a neetcode.io/practice (or leetcode.com) problem in the active tab, then Scrape.",
-    );
+    throw new Error("Open a neetcode or leetcode problem to start visualizing!");
   }
   let resp: ContentToPanelMessage;
   try {

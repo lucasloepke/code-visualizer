@@ -37,6 +37,12 @@ body {
   gap: 8px;
 }
 
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
 .app-header h1 {
   font-size: 15px;
   margin: 0;
@@ -99,6 +105,113 @@ body {
 .btn--tiny {
   padding: 1px 6px;
   font-size: 11px;
+}
+.btn--play {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+}
+.btn--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+.btn--icon .icon {
+  display: block;
+}
+.btn--icon:hover:not(:disabled) .icon {
+  color: var(--accent-2);
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ---- ⋮ overflow menu ---- */
+.menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 200px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: var(--panel);
+}
+.menu-item--toggle input {
+  accent-color: var(--accent);
+}
+.menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.menu-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+.menu-dropdown .sample-select {
+  width: 100%;
+}
+
+/* ---- scraping animation ---- */
+.banner--scraping {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+.spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(129, 140, 248, 0.3);
+  border-top-color: var(--accent-2);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .banner {

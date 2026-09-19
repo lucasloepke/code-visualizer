@@ -21,14 +21,19 @@ export function App() {
 
   const [pyStatus, setPyStatus] = useState<PyStatus>("idle");
   const [running, setRunning] = useState(false);
+  const [scraping, setScraping] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [runs, setRuns] = useState<TraceRun[] | null>(null);
   const [activeRun, setActiveRun] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(6);
+  const [speed, setSpeed] = useState(3);
 
   // Warm up Pyodide in the background as soon as the panel opens.
   useEffect(() => {
@@ -68,29 +73,41 @@ export function App() {
     };
   }, [playing, speed, steps]);
 
-  const runAll = useCallback(async () => {
-    setRunning(true);
-    setMessage(null);
-    setPlaying(false);
-    try {
-      await ensurePyodide();
-      setPyStatus("ready");
-      const result = await executeAll({ code, signature, testCases });
-      setRuns(result);
-      setActiveRun(0);
-      setStepIndex(0);
-    } catch (err) {
-      setMessage(`Run failed: ${String(err)}`);
-    } finally {
-      setRunning(false);
-    }
-  }, [code, signature, testCases]);
+  const runWith = useCallback(
+    async (input: { code: string; signature: string; testCases: TestCase[] }) => {
+      setRunning(true);
+      setMessage(null);
+      setPlaying(false);
+      try {
+        await ensurePyodide();
+        setPyStatus("ready");
+        const result = await executeAll(input);
+        setRuns(result);
+        setActiveRun(0);
+        setStepIndex(0);
+      } catch (err) {
+        setMessage(`Run failed: ${String(err)}`);
+      } finally {
+        setRunning(false);
+      }
+    },
+    [],
+  );
+
+  const runAll = useCallback(
+    () => runWith({ code, signature, testCases }),
+    [runWith, code, signature, testCases],
+  );
 
   const doScrape = useCallback(async () => {
     setMessage(null);
     setWarnings([]);
+    setScraping(true);
     try {
       const result = await scrapeActiveTab();
+      const nextCode = result.code || code;
+      const nextSignature = result.functionSignature || signature;
+      const nextTestCases = result.testCases.length ? result.testCases : testCases;
       if (result.code) setCode(result.code);
       if (result.functionSignature) setSignature(result.functionSignature);
       if (result.testCases.length) setTestCases(result.testCases);
@@ -99,10 +116,38 @@ export function App() {
         `Scraped ${result.site} — ${result.testCases.length} test case(s)` +
           (result.code ? "" : " (no code found)"),
       );
+      setScraping(false);
+      // Kick off the visualization immediately with the freshly scraped values
+      // (state setters above haven't flushed yet, so pass them explicitly).
+      if (result.code) {
+        await runWith({ code: nextCode, signature: nextSignature, testCases: nextTestCases });
+      }
     } catch (err) {
       setMessage(String(err instanceof Error ? err.message : err));
+      setScraping(false);
     }
-  }, []);
+  }, [runWith, code, signature, testCases]);
+
+  // Auto-scrape the active problem tab as soon as the panel opens, so the
+  // user's own code is loaded and ready without pressing anything.
+  const didAutoScrape = useRef(false);
+  useEffect(() => {
+    if (didAutoScrape.current) return;
+    didAutoScrape.current = true;
+    void doScrape();
+  }, [doScrape]);
+
+  // Close the ⋮ menu on an outside click.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
 
   const loadSample = useCallback((id: string) => {
     const s = SAMPLES.find((x) => x.id === id);
@@ -111,8 +156,9 @@ export function App() {
     setSignature(s.signature);
     setTestCases(s.testCases);
     setRuns(null);
-    setMessage(null);
+    setMessage(`Loaded example — ${s.label}`);
     setWarnings([]);
+    setMenuOpen(false);
   }, []);
 
   const seek = useCallback((i: number) => {
@@ -149,30 +195,76 @@ export function App() {
             <span className={`pystatus pystatus--${pyStatus}`}>{pyStatus}</span>
           </p>
         </div>
+        <div className="header-actions">
+          <button
+            className="btn btn--icon"
+            onClick={() => void doScrape()}
+            disabled={scraping}
+            title="Re-scrape the active tab"
+            aria-label="Re-scrape the active tab"
+          >
+            <svg
+              className="icon"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+            </svg>
+          </button>
+          <div className="menu-wrap" ref={menuRef}>
+            <button
+              className="btn btn--icon"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              title="More options"
+            >
+              ⋮
+            </button>
+            {menuOpen && (
+              <div className="menu-dropdown" role="menu">
+                <label className="menu-item menu-item--toggle">
+                  <input
+                    type="checkbox"
+                    checked={debugMode}
+                    onChange={(e) => setDebugMode(e.target.checked)}
+                  />
+                  Debug mode
+                </label>
+
+                <div className="menu-divider" />
+                <div className="menu-label">Load example (fallback)</div>
+                <select
+                  className="sample-select"
+                  onChange={(e) => loadSample(e.target.value)}
+                  defaultValue=""
+                  title="Load a built-in demo problem"
+                >
+                  <option value="" disabled>
+                    Choose an example…
+                  </option>
+                  {SAMPLES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
-      <div className="toolbar">
-        <select
-          className="sample-select"
-          onChange={(e) => loadSample(e.target.value)}
-          defaultValue={SAMPLES[0].id}
-          title="Load a built-in demo problem"
-        >
-          {SAMPLES.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <button className="btn" onClick={doScrape} title="Scrape the active NeetCode/LeetCode tab">
-          Scrape tab
-        </button>
-        <button className="btn btn--primary" onClick={runAll} disabled={running || pyStatus === "error"}>
-          {running ? "Running…" : "Run ▶"}
-        </button>
-      </div>
-
-      {message && <div className="banner">{message}</div>}
+      {scraping && (
+        <div className="banner banner--scraping">
+          <span className="spinner" aria-hidden="true" />
+          Scraping the active tab…
+        </div>
+      )}
+      {!scraping && message && <div className="banner">{message}</div>}
       {warnings.length > 0 && (
         <div className="banner banner--warn">
           {warnings.map((w, i) => (
@@ -181,24 +273,33 @@ export function App() {
         </div>
       )}
 
-      <details className="editor-details" open={!runs}>
-        <summary>Input (code + test cases)</summary>
-        <label className="field-label">Solution code (Python)</label>
-        <textarea
-          className="code-input"
-          value={code}
-          spellCheck={false}
-          onChange={(e) => setCode(e.target.value)}
-          rows={12}
-        />
-        <label className="field-label">Signature</label>
-        <input
-          className="sig-input"
-          value={signature}
-          onChange={(e) => setSignature(e.target.value)}
-        />
-        <TestCaseEditor testCases={testCases} onChange={setTestCases} />
-      </details>
+      {debugMode && (
+        <details className="editor-details" open={!runs}>
+          <summary>Input (code + test cases)</summary>
+          <label className="field-label">Solution code (Python)</label>
+          <textarea
+            className="code-input"
+            value={code}
+            spellCheck={false}
+            onChange={(e) => setCode(e.target.value)}
+            rows={12}
+          />
+          <label className="field-label">Signature</label>
+          <input
+            className="sig-input"
+            value={signature}
+            onChange={(e) => setSignature(e.target.value)}
+          />
+          <TestCaseEditor testCases={testCases} onChange={setTestCases} />
+          <button
+            className="btn btn--primary btn--play"
+            onClick={runAll}
+            disabled={running || scraping || pyStatus === "error"}
+          >
+            {running ? "Running…" : "Run ▶"}
+          </button>
+        </details>
+      )}
 
       {currentRun && (
         <div className="results">

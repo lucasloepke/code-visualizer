@@ -20,11 +20,14 @@ Then in Chrome:
 1. Go to `chrome://extensions`, enable **Developer mode**.
 2. **Load unpacked** → select the `dist/` folder.
 3. Open a `neetcode.io/practice` problem (or `leetcode.com/problems/...`).
-4. Click the extension icon to open the side panel.
-5. Click **Scrape tab** to pull the editor code + visible examples, then **Run ▶**.
+4. Click the extension icon to open the side panel — it **auto-scrapes** the
+   active tab (editor code + visible examples) and runs the visualization.
+5. Use the step controls to play / pause / scrub through the trace.
 
-You can also pick a **built-in sample** from the dropdown and hit **Run** without
-any website — useful for a quick demo and for verifying the pipeline.
+The **↻** button re-scrapes the active tab. The **⋮ menu** (top-right) holds
+fallbacks: a **Debug mode** toggle that reveals the raw code / test-case editor,
+and a list of **built-in examples** you can load without any website — useful for
+a quick demo and for verifying the pipeline.
 
 ## Architecture
 
