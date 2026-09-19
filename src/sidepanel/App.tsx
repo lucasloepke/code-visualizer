@@ -126,6 +126,15 @@ export function App() {
     },
     [steps.length],
   );
+  const togglePlay = useCallback(() => {
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    if (steps.length === 0) return;
+    if (stepIndex >= steps.length - 1) setStepIndex(0);
+    setPlaying(true);
+  }, [playing, stepIndex, steps.length]);
 
   const errorLine = currentRun?.error?.line ?? null;
   const currentLine = currentStep?.line ?? null;
@@ -222,7 +231,7 @@ export function App() {
             stepCount={steps.length}
             playing={playing}
             speed={speed}
-            onTogglePlay={() => setPlaying((p) => !p)}
+            onTogglePlay={togglePlay}
             onSeek={seek}
             onStep={step}
             onSpeed={setSpeed}

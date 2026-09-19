@@ -20,6 +20,7 @@ export function Controls({
   onSpeed,
 }: ControlsProps) {
   const max = Math.max(0, stepCount - 1);
+  const atEnd = stepCount > 0 && stepIndex >= max;
   return (
     <div className="controls">
       <div className="controls-row">
@@ -27,7 +28,7 @@ export function Controls({
           ◀
         </button>
         <button className="btn btn--primary" onClick={onTogglePlay} disabled={stepCount === 0}>
-          {playing ? "❚❚ Pause" : "▶ Play"}
+          {playing ? "❚❚ Pause" : atEnd ? "↻ Replay" : "▶ Play"}
         </button>
         <button className="btn" onClick={() => onStep(1)} disabled={stepIndex >= max} title="Next step">
           ▶
