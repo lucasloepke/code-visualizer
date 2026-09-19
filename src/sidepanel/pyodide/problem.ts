@@ -95,6 +95,11 @@ export interface ParsedTestInput {
   args: unknown[];
   /** Argument names when the input used name = value form; parallel to args. */
   names: (string | null)[];
+  /**
+   * Named values from the scraped input that are NOT function parameters
+   * (e.g. `index = 1` for linked-list cycle problems).
+   */
+  extras: Record<string, unknown>;
 }
 
 /**
@@ -117,13 +122,26 @@ export function parseTestInput(input: string, params: string[]): ParsedTestInput
       byName.set(key, val);
       order.push(key);
     }
-    // Order args by the declared params when available, else insertion order.
-    const orderedKeys = params.length ? params.filter((p) => byName.has(p)) : order;
-    // Include any leftover assignments not matched to params.
-    for (const k of order) if (!orderedKeys.includes(k)) orderedKeys.push(k);
+    // Only pass real function parameters — extras like `index` stay out of args.
+    const orderedKeys = params.length
+      ? params.filter((p) => byName.has(p))
+      : order;
+    const extras: Record<string, unknown> = {};
+    for (const k of order) {
+      if (!orderedKeys.includes(k)) extras[k] = byName.get(k);
+    }
+    // If we had no param list, everything was treated as args (legacy).
+    if (!params.length) {
+      return {
+        args: orderedKeys.map((k) => byName.get(k)),
+        names: orderedKeys,
+        extras: {},
+      };
+    }
     return {
       args: orderedKeys.map((k) => byName.get(k)),
       names: orderedKeys,
+      extras,
     };
   }
   // Positional: one value per line, else a single value.
@@ -132,6 +150,7 @@ export function parseTestInput(input: string, params: string[]): ParsedTestInput
   return {
     args: tokens.map(parseValue),
     names: tokens.map(() => null),
+    extras: {},
   };
 }
 

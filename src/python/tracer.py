@@ -85,11 +85,17 @@ class TreeNode:
         self.right = right
 
 
-def build_linked_list(arr):
-    head = None
-    for v in reversed(list(arr)):
-        head = ListNode(v, head)
-    return head
+def build_linked_list(arr, cycle_index=None):
+    """Build a singly-linked list. If cycle_index >= 0, tail.next = nodes[cycle_index]."""
+    vals = list(arr) if arr is not None else []
+    if not vals:
+        return None
+    nodes = [ListNode(v) for v in vals]
+    for i in range(len(nodes) - 1):
+        nodes[i].next = nodes[i + 1]
+    if isinstance(cycle_index, int) and cycle_index >= 0 and cycle_index < len(nodes):
+        nodes[-1].next = nodes[cycle_index]
+    return nodes[0]
 
 
 def build_tree(arr):
@@ -341,7 +347,7 @@ def index_vars(user_code, str_param):
     return names
 
 
-def run_trace(user_code, entry_name, args_json, coercions_json):
+def run_trace(user_code, entry_name, args_json, coercions_json, cycle_indexes_json="null"):
     ns = {
         **_PRELOADED,
         "ListNode": ListNode,
@@ -367,11 +373,15 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
 
     raw_args = json.loads(args_json)
     coercions = json.loads(coercions_json)
+    cycle_indexes = json.loads(cycle_indexes_json) if cycle_indexes_json not in (None, "null") else []
+    if not isinstance(cycle_indexes, list):
+        cycle_indexes = []
     built_args = []
     for i, a in enumerate(raw_args):
         c = coercions[i] if i < len(coercions) else "raw"
         if c == "linked_list":
-            built_args.append(build_linked_list(a))
+            cyc = cycle_indexes[i] if i < len(cycle_indexes) else None
+            built_args.append(build_linked_list(a, cyc))
         elif c == "tree":
             built_args.append(build_tree(a))
         elif c == "string":
