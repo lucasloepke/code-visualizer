@@ -69,17 +69,28 @@ function getEditorState(): { code: string; source: string } | null {
   return readFromMonaco() ?? readFromCodeMirror();
 }
 
+async function waitForEditorState(timeoutMs = 1200): Promise<{ code: string; source: string } | null> {
+  const deadline = Date.now() + timeoutMs;
+  let state = getEditorState();
+  while (!state && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    state = getEditorState();
+  }
+  return state;
+}
+
 window.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || data.__cv !== true || data.kind !== "request" || data.tag !== TAG) return;
   const id = data.id;
   try {
     if (data.action === "getEditorState") {
-      const state = getEditorState();
+      waitForEditorState().then((state) => {
       window.postMessage(
         { __cv: true, kind: "response", tag: TAG, id, ok: true, data: state },
         "*",
       );
+      });
     } else {
       window.postMessage(
         { __cv: true, kind: "response", tag: TAG, id, ok: false, error: "unknown action" },

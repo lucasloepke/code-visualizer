@@ -21,7 +21,7 @@ export interface EditorState {
   source: string;
 }
 
-export function requestEditorState(timeoutMs = 1500): Promise<EditorState | null> {
+export function requestEditorState(timeoutMs = 3000): Promise<EditorState | null> {
   injectBridge();
   const id = nextId++;
   return new Promise((resolve) => {
@@ -45,7 +45,7 @@ export function requestEditorState(timeoutMs = 1500): Promise<EditorState | null
     const send = () =>
       window.postMessage({ __cv: true, kind: "request", tag: TAG, id, action: "getEditorState" }, "*");
     send();
-    setTimeout(send, 150);
-    setTimeout(send, 500);
+    setTimeout(send, 300);
+    setTimeout(send, 900);
   });
 }

@@ -36,10 +36,6 @@ export class NeetCodeAdapter implements SiteAdapter {
     //    be imperfect because Monaco virtualizes/renders visible lines only).
     const domCode = this.readMonacoDom();
     if (domCode) {
-      this.lastWarnings.push(
-        "Read code from rendered editor lines (page-bridge model access failed). " +
-          "Indentation may be approximate; verify NeetCode's editor globals.",
-      );
       return domCode;
     }
 
