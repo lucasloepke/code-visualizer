@@ -8,21 +8,36 @@ import type { Coercion } from "./runner";
 export interface ParsedSignature {
   name: string | null;
   params: string[];
+  /** Parallel to params — e.g. "Optional[TreeNode]", or null if untyped. */
+  paramTypes: (string | null)[];
 }
 
-/** Extract the function/method name and parameter names from a signature string. */
+/** Extract the function/method name, parameter names, and type hints. */
 export function parseSignature(sig: string): ParsedSignature {
-  if (!sig) return { name: null, params: [] };
+  if (!sig) return { name: null, params: [], paramTypes: [] };
   const m = sig.match(/(?:def\s+)?([A-Za-z_]\w*)\s*\(([^)]*)\)/);
-  if (!m) return { name: null, params: [] };
+  if (!m) return { name: null, params: [], paramTypes: [] };
   const name = m[1];
-  const params = m[2]
-    .split(",")
-    .map((p) => p.trim())
-    // strip type annotations and defaults, drop *, **
-    .map((p) => p.replace(/[:=].*$/, "").replace(/^\*+/, "").trim())
-    .filter((p) => p && p !== "self" && p !== "cls");
-  return { name, params };
+  const params: string[] = [];
+  const paramTypes: (string | null)[] = [];
+  for (const raw of splitTopLevel(m[2], ",")) {
+    const part = raw.trim();
+    if (!part || part.startsWith("*")) continue;
+    const noDefault = part.split("=")[0].trim();
+    const colon = noDefault.indexOf(":");
+    let pname: string;
+    let ptype: string | null = null;
+    if (colon !== -1) {
+      pname = noDefault.slice(0, colon).trim().replace(/^\*+/, "");
+      ptype = noDefault.slice(colon + 1).trim() || null;
+    } else {
+      pname = noDefault.replace(/^\*+/, "").trim();
+    }
+    if (!pname || pname === "self" || pname === "cls") continue;
+    params.push(pname);
+    paramTypes.push(ptype);
+  }
+  return { name, params, paramTypes };
 }
 
 /** Split a string on a delimiter, ignoring delimiters inside brackets/quotes. */
@@ -121,19 +136,21 @@ export function parseTestInput(input: string, params: string[]): ParsedTestInput
 }
 
 const LINKED_LIST_HINTS = /^(head|l1|l2|list1|list2|node|lists?)$/i;
-const TREE_HINTS = /^(root|tree|node1|node2)$/i;
+const TREE_HINTS = /^(root|tree|node1|node2|p|q)$/i;
 
-/** Infer per-argument structure coercion from param names + value shapes. */
+/** Infer per-argument structure coercion from type hints, param names, and shapes. */
 export function inferCoercions(
   args: unknown[],
   names: (string | null)[],
   params: string[],
+  paramTypes: (string | null)[] = [],
 ): Coercion[] {
   return args.map((val, i) => {
     const name = names[i] ?? params[i] ?? "";
+    const typeHint = paramTypes[params.indexOf(name)] ?? paramTypes[i] ?? "";
     const isArray = Array.isArray(val);
-    if (isArray && TREE_HINTS.test(name)) return "tree";
-    if (isArray && LINKED_LIST_HINTS.test(name)) return "linked_list";
+    if (isArray && (/TreeNode/i.test(typeHint) || TREE_HINTS.test(name))) return "tree";
+    if (isArray && (/ListNode/i.test(typeHint) || LINKED_LIST_HINTS.test(name))) return "linked_list";
     if (isArray) return "array";
     return "raw";
   });

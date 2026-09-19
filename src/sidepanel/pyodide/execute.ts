@@ -26,7 +26,7 @@ export async function executeAll({
 
   for (const tc of testCases) {
     const { args, names } = parseTestInput(tc.input, sig.params);
-    const coercions = inferCoercions(args, names, sig.params);
+    const coercions = inferCoercions(args, names, sig.params, sig.paramTypes);
     const raw = await runTrace(code, sig.name, args, coercions);
     runs.push({
       testCaseName: tc.name,
