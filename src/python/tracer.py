@@ -16,6 +16,7 @@ import math
 import inspect
 import contextlib
 from collections import deque
+from typing import Any, Deque, Dict, List, Optional, Set, Tuple, Union
 
 USER_FILE = "<user_solution>"
 MAX_STEPS = 500
@@ -190,7 +191,18 @@ def _resolve_target(ns, entry_name):
 
 
 def run_trace(user_code, entry_name, args_json, coercions_json):
-    ns = {"ListNode": ListNode, "TreeNode": TreeNode}
+    ns = {
+        "ListNode": ListNode,
+        "TreeNode": TreeNode,
+        "Any": Any,
+        "Deque": Deque,
+        "Dict": Dict,
+        "List": List,
+        "Optional": Optional,
+        "Set": Set,
+        "Tuple": Tuple,
+        "Union": Union,
+    }
     try:
         compiled = compile(user_code, USER_FILE, "exec")
         exec(compiled, ns)
