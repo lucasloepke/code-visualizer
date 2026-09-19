@@ -34,7 +34,7 @@ export class NeetCodeAdapter implements SiteAdapter {
 
     // 2) Fallback: reconstruct from rendered Monaco view lines (whitespace may
     //    be imperfect because Monaco virtualizes/renders visible lines only).
-    const domCode = this.readMonacoDom();
+    const domCode = await this.readMonacoDom();
     if (domCode) {
       return domCode;
     }
@@ -46,7 +46,7 @@ export class NeetCodeAdapter implements SiteAdapter {
     return "";
   }
 
-  private readMonacoDom(): string {
+  private async readMonacoDom(): Promise<string> {
     const editors = Array.from(document.querySelectorAll<HTMLElement>(".monaco-editor"))
       .map((editor) => ({
         editor,
@@ -57,28 +57,62 @@ export class NeetCodeAdapter implements SiteAdapter {
     const selected = editors[0];
     if (!selected) return "";
 
-    const rows = selected.lines.map((line) => ({
-      top: line.getBoundingClientRect().top,
-      text: line.textContent?.replace(/\u00a0/g, " ") ?? "",
-    }));
-    const starts = Array.from(selected.editor.querySelectorAll<HTMLElement>(".line-numbers"))
+    const scrollable = Array.from(selected.editor.querySelectorAll<HTMLElement>("*"))
+      .filter((element) => element.scrollHeight > element.clientHeight + 1)
+      .sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+    if (!scrollable) {
+      return this.readVisibleMonacoLines(selected.editor)
+        .map(([, text]) => text)
+        .join("\n");
+    }
+
+    const originalScrollTop = scrollable.scrollTop;
+    const lines = new Map<number, string>();
+    try {
+      scrollable.scrollTop = 0;
+      let previousScrollTop = -1;
+      for (let i = 0; i < 200 && scrollable.scrollTop !== previousScrollTop; i++) {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+        for (const [lineNumber, text] of this.readVisibleMonacoLines(selected.editor)) {
+          lines.set(lineNumber, text);
+        }
+        previousScrollTop = scrollable.scrollTop;
+        scrollable.scrollTop = Math.min(
+          previousScrollTop + Math.max(1, scrollable.clientHeight - 24),
+          scrollable.scrollHeight,
+        );
+      }
+    } finally {
+      scrollable.scrollTop = originalScrollTop;
+    }
+
+    return Array.from(lines.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, text]) => text)
+      .join("\n");
+  }
+
+  private readVisibleMonacoLines(editor: HTMLElement): Array<[number, string]> {
+    const rows = Array.from(editor.querySelectorAll<HTMLElement>(".view-lines .view-line"))
+      .map((line) => ({
+        top: line.getBoundingClientRect().top,
+        text: line.textContent?.replace(/\u00a0/g, " ") ?? "",
+      }));
+    const starts = Array.from(editor.querySelectorAll<HTMLElement>(".line-numbers"))
       .map((number) => ({
         top: number.getBoundingClientRect().top,
         text: number.textContent?.trim() ?? "",
         height: number.getBoundingClientRect().height,
       }))
       .filter(({ text, height }) => /^\d+$/.test(text) && height > 0)
+      .map(({ top, text }) => ({ top, lineNumber: Number(text) }))
       .sort((a, b) => a.top - b.top);
 
-    if (starts.length === 0) return rows.map(({ text }) => text).join("\n");
-
-    const logicalLines: string[] = [];
-    for (const [index, start] of starts.entries()) {
+    return starts.map((start, index) => {
       const nextTop = starts[index + 1]?.top ?? Number.POSITIVE_INFINITY;
       const wrappedRows = rows.filter(({ top }) => top >= start.top && top < nextTop);
-      logicalLines.push(wrappedRows.map(({ text }) => text).join(""));
-    }
-    return logicalLines.join("\n");
+      return [start.lineNumber, wrappedRows.map(({ text }) => text).join("")];
+    });
   }
 
   async getTestCases(): Promise<TestCase[]> {

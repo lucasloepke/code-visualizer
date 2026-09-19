@@ -65,8 +65,19 @@ function readFromCodeMirror(): { code: string; source: string } | null {
   return null;
 }
 
+function readFromEditorTextarea(): { code: string; source: string } | null {
+  const editors = Array.from(
+    document.querySelectorAll<HTMLTextAreaElement>(
+      'app-code-editor .monaco-editor textarea.inputarea[aria-label="Code editor"]',
+    ),
+  );
+  const editor = editors.find((textarea) => textarea.value) ?? editors[0];
+  const code = editor?.value ?? "";
+  return code ? { code, source: "monaco-textarea" } : null;
+}
+
 function getEditorState(): { code: string; source: string } | null {
-  return readFromMonaco() ?? readFromCodeMirror();
+  return readFromMonaco() ?? readFromCodeMirror() ?? readFromEditorTextarea();
 }
 
 async function waitForEditorState(timeoutMs = 1200): Promise<{ code: string; source: string } | null> {
