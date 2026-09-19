@@ -1,20 +1,34 @@
-// Minimal MV3 service worker. Its only job is to open the side panel when the
-// toolbar icon is clicked. The side panel (an extension page with chrome.tabs
-// access) messages the content script directly, so no message routing is
-// needed here.
+// Minimal MV3 service worker. Opens the side panel on toolbar click, scoped to
+// the tab that was clicked. The panel (an extension page with chrome.tabs
+// access) messages the content script directly, so no routing is needed here.
 
-chrome.runtime.onInstalled.addListener(() => {
-  // Clicking the action icon opens the side panel (kept in sync with the tab).
-  chrome.sidePanel
-    .setPanelBehavior({ openPanelOnActionClick: true })
+const PANEL_PATH = "index.html";
+
+// Turn the panel off everywhere, so only tabs we explicitly enable show it.
+async function disableGlobally() {
+  try {
+    await chrome.sidePanel.setOptions({ enabled: false });
+  } catch (err) {
+    console.error("[code-visualizer] setOptions(global) failed", err);
+  }
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
+  // Must be false, or action.onClicked never fires and the panel goes global.
+  await chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: false })
     .catch((err) => console.error("[code-visualizer] setPanelBehavior failed", err));
+  await disableGlobally();
 });
 
-// Also handle the click explicitly for browsers/tabs where behavior isn't set.
+chrome.runtime.onStartup.addListener(disableGlobally);
+
 chrome.action.onClicked.addListener((tab) => {
-  if (tab.windowId != null) {
-    chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {
-      /* no-op: panel may already be open */
-    });
-  }
+  if (tab.id == null) return;
+  chrome.sidePanel
+    .setOptions({ tabId: tab.id, path: PANEL_PATH, enabled: true })
+    .catch((err) => console.error("[code-visualizer] setOptions failed", err));
+  chrome.sidePanel
+    .open({ tabId: tab.id })
+    .catch((err) => console.error("[code-visualizer] open failed", err));
 });
