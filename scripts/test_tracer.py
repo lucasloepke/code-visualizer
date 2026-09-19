@@ -157,4 +157,31 @@ print("error:", out["error"], "result:", out["result"])
 assert out["error"] is None, out["error"]
 assert out["result"]["kind"] == "array"
 
+# 7) Encode/Decode Strings — platform runs decode(encode(strs))
+codec = '''
+class Solution:
+    def encode(self, strs):
+        combined = ""
+        for i in strs:
+            combined += str(len(i)) + "." + i
+        return combined
+
+    def decode(self, s):
+        final = []
+        while s != "":
+            dot_index = s.find(".")
+            length = int(s[:dot_index])
+            final.append(s[dot_index + 1:length + dot_index + 1])
+            s = s[dot_index + length + 1:]
+        return final
+'''
+out = json.loads(
+    tracer.run_trace(codec, "encode", json.dumps([["Hello", "World"]]), json.dumps(["array"]))
+)
+print("\n=== encode_decode_roundtrip ===")
+print("error:", out["error"], "result:", out["result"])
+assert out["error"] is None, out["error"]
+assert out["result"]["kind"] == "array"
+assert [x["value"] for x in out["result"]["items"]] == ["Hello", "World"]
+
 print("\nALL TRACER TESTS RAN")
