@@ -9,7 +9,7 @@ async function disableGlobally() {
   try {
     await chrome.sidePanel.setOptions({ enabled: false });
   } catch (err) {
-    console.error("[code-visualizer] setOptions(global) failed", err);
+    console.error("[leetvision] setOptions(global) failed", err);
   }
 }
 
@@ -17,7 +17,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   // Must be false, or action.onClicked never fires and the panel goes global.
   await chrome.sidePanel
     .setPanelBehavior({ openPanelOnActionClick: false })
-    .catch((err) => console.error("[code-visualizer] setPanelBehavior failed", err));
+    .catch((err) => console.error("[leetvision] setPanelBehavior failed", err));
   await disableGlobally();
 });
 
@@ -27,8 +27,8 @@ chrome.action.onClicked.addListener((tab) => {
   if (tab.id == null) return;
   chrome.sidePanel
     .setOptions({ tabId: tab.id, path: PANEL_PATH, enabled: true })
-    .catch((err) => console.error("[code-visualizer] setOptions failed", err));
+    .catch((err) => console.error("[leetvision] setOptions failed", err));
   chrome.sidePanel
     .open({ tabId: tab.id })
-    .catch((err) => console.error("[code-visualizer] open failed", err));
+    .catch((err) => console.error("[leetvision] open failed", err));
 });

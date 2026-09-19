@@ -1,4 +1,4 @@
-// Build orchestrator for the Code Visualizer MV3 extension.
+// Build orchestrator for the LeetVision MV3 extension.
 //
 // Steps:
 //   1. Empty dist/

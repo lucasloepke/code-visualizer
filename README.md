@@ -1,4 +1,4 @@
-# Code Visualizer — Chrome Extension (MV3)
+# LeetVision — Chrome Extension (MV3)
 
 Scrapes your Python solution + visible example test cases from a coding-problem
 page (NeetCode is the primary target, LeetCode secondary), runs it **entirely

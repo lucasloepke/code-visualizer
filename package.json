@@ -1,8 +1,8 @@
 {
-  "name": "code-visualizer",
+  "name": "leetvision",
   "private": true,
   "version": "0.1.0",
-  "description": "Chrome MV3 extension that scrapes coding-problem solutions, runs them client-side with Pyodide, traces execution line-by-line, and renders a step-through animation in the side panel.",
+  "description": "Dynamically visualize LeetCode executions, step-by-step.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

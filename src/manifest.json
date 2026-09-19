@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Code Visualizer",
+  "name": "LeetVision",
   "version": "0.1.0",
-  "description": "Scrape your coding-problem solution, run it client-side with Pyodide, and step through a line-by-line animation in the side panel.",
+  "description": "Dynamically visualize LeetCode executions, step-by-step.",
   "permissions": ["sidePanel", "scripting", "activeTab", "tabs", "clipboardRead", "storage"],
   "host_permissions": ["https://neetcode.io/*", "https://leetcode.com/*"],
   "background": {
@@ -10,7 +10,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Open Code Visualizer"
+    "default_title": "Open LeetVision"
   },
   "side_panel": {
     "default_path": "index.html"

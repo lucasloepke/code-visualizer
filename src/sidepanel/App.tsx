@@ -211,7 +211,7 @@ export function App() {
     <div className="app">
       <header className="app-header">
         <div>
-          <h1>Code Visualizer</h1>
+          <h1>LeetVision</h1>
           <p className="subtitle">
             Pyodide status:{" "}
             <span className={`pystatus pystatus--${pyStatus}`}>{pyStatus}</span>
