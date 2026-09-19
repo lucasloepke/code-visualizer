@@ -37,6 +37,8 @@ export async function executeAll({
       truncated: raw.truncated,
       passed: raw.error ? false : compareResult(raw.result, tc.expected),
       stdout: raw.stdout,
+      stringParams: raw.stringParams ?? [],
+      indexVars: raw.indexVars ?? [],
     });
   }
   return runs;

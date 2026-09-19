@@ -2,9 +2,13 @@ import type { SerializedValue, TraceRun, TraceStep } from "../../shared/trace";
 import { ArrayView } from "./ArrayView";
 import { LinkedListView } from "./LinkedListView";
 import { TreeView } from "./TreeView";
+import { StringView } from "./StringView";
+import { AuxView } from "./AuxView";
 import {
   extractArrays,
+  extractAux,
   extractLinkedLists,
+  extractStrings,
   extractTrees,
   primitiveText,
 } from "./valueUtils";
@@ -25,10 +29,12 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
     return <div className="stage stage--empty">No steps to display.</div>;
   }
 
-  const arrays = extractArrays(step);
+  const arrays = extractArrays(step, run.indexVars);
   const lists = extractLinkedLists(step);
   const trees = extractTrees(step);
-  const nothing = arrays.length === 0 && lists.length === 0 && trees.length === 0;
+  const strings = extractStrings(step, run.indexVars);
+  const aux = extractAux(step);
+  const nothing = arrays.length === 0 && lists.length === 0 && trees.length === 0 && strings.length === 0;
 
   return (
     <div className={`stage${isException ? " stage--error" : ""}`}>
@@ -38,9 +44,14 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
       {lists.map((l) => (
         <LinkedListView key={l.name} list={l} />
       ))}
+            {strings.map((s) => (
+        <StringView key={s.name} str={s} />
+      ))}
       {arrays.map((a) => (
         <ArrayView key={a.name} array={a} />
       ))}
+      {strings.length > 0 &&
+        aux.map((a) => <AuxView key={a.name} aux={a} />)}
 
       {nothing && (
         <div className="stage--empty">
