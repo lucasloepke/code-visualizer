@@ -4,8 +4,8 @@
 
 /**
  * A serialized Python value. The Python serializer only produces the shapes the
- * demo problems need: primitives, arrays, singly-linked lists, and binary trees.
- * Anything else falls back to a repr string.
+ * demo problems need: primitives, strings, arrays, dicts/hashmaps, sets,
+ * singly-linked lists, and binary trees. Anything else falls back to a repr string.
  */
 export type SerializedValue =
   | { kind: "primitive"; value: number | boolean | null }

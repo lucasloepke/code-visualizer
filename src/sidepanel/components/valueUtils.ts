@@ -33,7 +33,16 @@ export interface NamedTree {
   root: Extract<SerializedValue, { kind: "tree" }>["root"];
 }
 
+export interface NamedMap {
+  name: string;
+  entries: Extract<SerializedValue, { kind: "map" }>["entries"];
+  /** Primitive key currently being looked up / compared, if any. */
+  highlightedKey: string | null;
+}
+
 const POINTER_NAME = /^(i|j|k|l|r|lo|hi|mid|p|q|left|right|start|end|slow|fast|idx|index|lp|rp|a|b)$/;
+/** Locals that often hold the key being probed in a hashmap lookup. */
+const LOOKUP_KEY_NAME = /^(complement|comp|key|k|need|needed|diff|target_diff)$/;
 
 export function primitiveText(v: SerializedValue | undefined): string {
   if (!v) return "";
@@ -132,6 +141,26 @@ export function extractTrees(step: TraceStep): NamedTree[] {
   return trees;
 }
 
+function lookupKeyHighlight(step: TraceStep): string | null {
+  for (const [name, v] of Object.entries(step.locals)) {
+    if (LOOKUP_KEY_NAME.test(name) && v.kind === "primitive" && v.value != null) {
+      return String(v.value);
+    }
+  }
+  return null;
+}
+
+export function extractMaps(step: TraceStep): NamedMap[] {
+  const highlightedKey = lookupKeyHighlight(step);
+  const maps: NamedMap[] = [];
+  for (const [name, v] of Object.entries(step.locals)) {
+    if (v.kind === "map") {
+      maps.push({ name, entries: v.entries, highlightedKey });
+    }
+  }
+  return maps;
+}
+
 export function extractStrings(step: TraceStep, indexVars?: string[]): NamedString[] {
   const ptrs = integerPointers(step, indexVars);
   const out: NamedString[] = [];
@@ -151,19 +180,11 @@ export function extractStrings(step: TraceStep, indexVars?: string[]): NamedStri
   return out.sort((a, b) => b.chars.length - a.chars.length).slice(0, 2);
 }
 
+/** Sets (and only sets) — maps use MapView instead. */
 export function extractAux(step: TraceStep): NamedAux[] {
   const out: NamedAux[] = [];
   for (const [name, v] of Object.entries(step.locals)) {
-    if (v.kind === "map") {
-      out.push({
-        name,
-        kind: "map",
-        entries: v.entries.map((e) => ({
-          key: primitiveText(e.key),
-          value: primitiveText(e.value),
-        })),
-      });
-    } else if (v.kind === "set") {
+    if (v.kind === "set") {
       out.push({ name, kind: "set", entries: v.items.map((x) => ({ key: primitiveText(x) })) });
     }
   }

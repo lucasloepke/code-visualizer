@@ -1,6 +1,7 @@
 import type { SerializedValue, TraceRun, TraceStep } from "../../shared/trace";
 import { ArrayView } from "./ArrayView";
 import { LinkedListView } from "./LinkedListView";
+import { MapView } from "./MapView";
 import { TreeView } from "./TreeView";
 import { StringView } from "./StringView";
 import { AuxView } from "./AuxView";
@@ -8,6 +9,7 @@ import {
   extractArrays,
   extractAux,
   extractLinkedLists,
+  extractMaps,
   extractStrings,
   extractTrees,
   primitiveText,
@@ -15,6 +17,8 @@ import {
 
 function ResultValue({ value }: { value: SerializedValue }) {
   if (value.kind === "array") return <ArrayView array={{ name: "return", items: value.items, pointers: [] }} />;
+  if (value.kind === "map")
+    return <MapView map={{ name: "return", entries: value.entries, highlightedKey: null }} />;
   if (value.kind === "linked_list")
     return <LinkedListView list={{ name: "return", nodes: value.nodes, pointerByNodeId: new Map() }} />;
   if (value.kind === "tree" && value.root)
@@ -33,8 +37,15 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
   const lists = extractLinkedLists(step);
   const trees = extractTrees(step);
   const strings = extractStrings(step, run.indexVars);
+  const maps = extractMaps(step);
   const aux = extractAux(step);
-  const nothing = arrays.length === 0 && lists.length === 0 && trees.length === 0 && strings.length === 0;
+  const nothing =
+    arrays.length === 0 &&
+    lists.length === 0 &&
+    trees.length === 0 &&
+    strings.length === 0 &&
+    maps.length === 0 &&
+    aux.length === 0;
 
   return (
     <div className={`stage${isException ? " stage--error" : ""}`}>
@@ -44,19 +55,23 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
       {lists.map((l) => (
         <LinkedListView key={l.name} list={l} />
       ))}
-            {strings.map((s) => (
+      {strings.map((s) => (
         <StringView key={s.name} str={s} />
       ))}
       {arrays.map((a) => (
         <ArrayView key={a.name} array={a} />
       ))}
-      {strings.length > 0 &&
-        aux.map((a) => <AuxView key={a.name} aux={a} />)}
+      {maps.map((m) => (
+        <MapView key={m.name} map={m} />
+      ))}
+      {aux.map((a) => (
+        <AuxView key={a.name} aux={a} />
+      ))}
 
       {nothing && (
         <div className="stage--empty">
-          No array / linked-list / tree in scope at this step. Watch the Variables
-          panel below.
+          No array / map / string / linked-list / tree in scope at this step.
+          Watch the Variables panel below.
         </div>
       )}
 

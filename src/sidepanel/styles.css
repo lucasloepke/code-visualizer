@@ -95,7 +95,7 @@ body {
 }
 .btn:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
+  cursor: default;
 }
 .btn--primary {
   background: var(--accent);
@@ -128,6 +128,14 @@ body {
 }
 .btn--icon:hover:not(:disabled) .icon {
   color: var(--accent-2);
+}
+.btn--replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px 5px 5px;
+  margin-left: -3px;
+  margin-right: -1px;
 }
 .header-actions {
   display: flex;
@@ -495,6 +503,40 @@ body {
   color: var(--muted);
   font-family: ui-monospace, monospace;
   font-size: 11px;
+}
+
+/* hashmap / dict */
+.map-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.map-entry {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--cell);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.map-entry--active {
+  background: var(--cell-active);
+  border-color: var(--accent-2);
+}
+.map-key {
+  color: var(--accent-2);
+  font-weight: 700;
+}
+.map-arrow {
+  color: var(--muted);
+}
+.map-value {
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* linked list */

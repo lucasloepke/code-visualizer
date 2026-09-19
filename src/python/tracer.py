@@ -6,7 +6,8 @@ returns the ENTIRE run as a single JSON string. No streaming, no callbacks --
 the side panel parses this blob once and replays it locally.
 
 Only the data shapes the demo problems need are serialized: primitives, arrays,
-singly-linked lists, and binary trees. Everything else degrades to a repr.
+dicts/hashmaps, singly-linked lists, and binary trees. Everything else
+degrades to a repr.
 """
 
 import ast
