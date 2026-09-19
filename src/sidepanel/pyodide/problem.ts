@@ -211,6 +211,37 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return false;
 }
 
+function isPrimitive(v: unknown): boolean {
+  return v == null || typeof v !== "object";
+}
+
+function cmpPrimitive(a: unknown, b: unknown): number {
+  const sa = String(a);
+  const sb = String(b);
+  return sa < sb ? -1 : sa > sb ? 1 : 0;
+}
+
+/**
+ * Canonicalize list-of-lists results where LeetCode/NeetCode allow any order
+ * (e.g. Group Anagrams). Flat arrays (linked-list values, paths with order)
+ * are left alone so order-sensitive answers still fail when wrong.
+ */
+function normalizeAnyOrderGroups(v: unknown): unknown {
+  if (!Array.isArray(v) || v.length === 0) return v;
+  if (!v.every((item) => Array.isArray(item))) return v;
+
+  const groups = v.map((group) => {
+    const g = group as unknown[];
+    if (g.every(isPrimitive)) return [...g].sort(cmpPrimitive);
+    return g;
+  });
+  return groups.sort((a, b) => {
+    const sa = JSON.stringify(a);
+    const sb = JSON.stringify(b);
+    return sa < sb ? -1 : sa > sb ? 1 : 0;
+  });
+}
+
 /**
  * Compare a run result to the scraped expected output.
  * Returns null when there's nothing comparable (e.g. no expected).
@@ -222,5 +253,7 @@ export function compareResult(
   if (result == null || expected == null || expected.trim() === "") return null;
   const expectedVal = parseValue(expected);
   const actual = serializedToPlain(result);
-  return deepEqual(actual, expectedVal);
+  if (deepEqual(actual, expectedVal)) return true;
+  // Group Anagrams etc.: "you may return the output in any order"
+  return deepEqual(normalizeAnyOrderGroups(actual), normalizeAnyOrderGroups(expectedVal));
 }
