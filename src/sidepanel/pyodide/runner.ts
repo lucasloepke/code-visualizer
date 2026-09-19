@@ -64,16 +64,18 @@ export function ensurePyodide(): Promise<PyodideInterface> {
 
 /**
  * Trace one run of the user's code.
- * @param code       user's Python source
- * @param entry      preferred function/method name (or null to auto-detect)
- * @param args       raw JSON-able positional args (arrays/ints/strings)
- * @param coercions  per-arg structure coercion parallel to args
+ * @param code          user's Python source
+ * @param entry         preferred function/method name (or null to auto-detect)
+ * @param args          raw JSON-able positional args (arrays/ints/strings)
+ * @param coercions     per-arg structure coercion parallel to args
+ * @param cycleIndexes  for linked_list args: tail connects to this index (-1/null = none)
  */
 export async function runTrace(
   code: string,
   entry: string | null,
   args: unknown[],
   coercions: Coercion[],
+  cycleIndexes: (number | null)[] = [],
 ): Promise<RawTraceOutput> {
   const pyodide = await ensurePyodide();
   const runTraceFn = pyodide.globals.get("run_trace") as (
@@ -81,7 +83,14 @@ export async function runTrace(
     entry: string | null,
     argsJson: string,
     coercionsJson: string,
+    cycleIndexesJson?: string,
   ) => string;
-  const json = runTraceFn(code, entry, JSON.stringify(args), JSON.stringify(coercions));
+  const json = runTraceFn(
+    code,
+    entry,
+    JSON.stringify(args),
+    JSON.stringify(coercions),
+    JSON.stringify(cycleIndexes),
+  );
   return JSON.parse(json) as RawTraceOutput;
 }
