@@ -47,6 +47,11 @@ export interface TraceStep {
   func: string;
   /** Local variables at this step, deep-copied to avoid aliasing across steps. */
   locals: Record<string, SerializedValue>;
+  /**
+   * Structural locals for the stage, filled from outer call-stack frames when
+   * the current frame has nothing to draw (e.g. recursive `root is None`).
+   */
+  vizLocals?: Record<string, SerializedValue>;
   /** 'line' for normal steps, 'return' for a return, 'exception' if it threw. */
   event: "line" | "return" | "exception" | "call";
   /** Present only when event === 'return'. */

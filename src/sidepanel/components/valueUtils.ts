@@ -1,5 +1,11 @@
 import type { SerializedValue, TraceStep } from "../../shared/trace";
 
+/** Locals the stage should draw — prefers stack-filled vizLocals when present. */
+export function stageLocals(step: TraceStep): Record<string, SerializedValue> {
+  if (step.vizLocals && Object.keys(step.vizLocals).length > 0) return step.vizLocals;
+  return step.locals;
+}
+
 export interface NamedArray {
   name: string;
   items: SerializedValue[];
@@ -77,6 +83,7 @@ function integerPointers(
   // Prefer AST-derived index vars when available: they distinguish a real index
   // from a counter that happens to be in range (`best` in a sliding window).
   const known = indexVars && indexVars.length > 0 ? new Set(indexVars) : null;
+  // Pointers come from the real frame locals (not viz fill-ins).
   for (const [name, v] of Object.entries(step.locals)) {
     if (v.kind === "primitive" && typeof v.value === "number" && Number.isInteger(v.value)) {
       if (known ? known.has(name) : POINTER_NAME.test(name)) {
@@ -90,7 +97,7 @@ function integerPointers(
 /** Node-reference locals (linked list / tree nodes) by their serialized id. */
 function nodePointers(step: TraceStep): { name: string; id: number }[] {
   const out: { name: string; id: number }[] = [];
-  for (const [name, v] of Object.entries(step.locals)) {
+  for (const [name, v] of Object.entries(stageLocals(step))) {
     if (v.kind === "linked_list" && v.nodes.length > 0) {
       out.push({ name, id: v.nodes[0].id });
     }
@@ -101,7 +108,7 @@ function nodePointers(step: TraceStep): { name: string; id: number }[] {
 export function extractArrays(step: TraceStep, indexVars?: string[]): NamedArray[] {
   const ptrs = integerPointers(step, indexVars);
   const arrays: NamedArray[] = [];
-  for (const [name, v] of Object.entries(step.locals)) {
+  for (const [name, v] of Object.entries(stageLocals(step))) {
     if (v.kind === "array") {
       const pointers = ptrs
         .filter((p) => p.value >= 0 && p.value < v.items.length)
@@ -115,7 +122,7 @@ export function extractArrays(step: TraceStep, indexVars?: string[]): NamedArray
 export function extractLinkedLists(step: TraceStep): NamedLinkedList[] {
   const nodeRefs = nodePointers(step);
   const lists: NamedLinkedList[] = [];
-  for (const [name, v] of Object.entries(step.locals)) {
+  for (const [name, v] of Object.entries(stageLocals(step))) {
     if (v.kind === "linked_list") {
       const pointerByNodeId = new Map<number, string[]>();
       for (const ref of nodeRefs) {
@@ -135,7 +142,7 @@ export function extractLinkedLists(step: TraceStep): NamedLinkedList[] {
 
 export function extractTrees(step: TraceStep): NamedTree[] {
   const trees: NamedTree[] = [];
-  for (const [name, v] of Object.entries(step.locals)) {
+  for (const [name, v] of Object.entries(stageLocals(step))) {
     if (v.kind === "tree" && v.root) trees.push({ name, root: v.root });
   }
   return trees;
@@ -153,7 +160,7 @@ function lookupKeyHighlight(step: TraceStep): string | null {
 export function extractMaps(step: TraceStep): NamedMap[] {
   const highlightedKey = lookupKeyHighlight(step);
   const maps: NamedMap[] = [];
-  for (const [name, v] of Object.entries(step.locals)) {
+  for (const [name, v] of Object.entries(stageLocals(step))) {
     if (v.kind === "map") {
       maps.push({ name, entries: v.entries, highlightedKey });
     }
@@ -164,7 +171,7 @@ export function extractMaps(step: TraceStep): NamedMap[] {
 export function extractStrings(step: TraceStep, indexVars?: string[]): NamedString[] {
   const ptrs = integerPointers(step, indexVars);
   const out: NamedString[] = [];
-  for (const [name, v] of Object.entries(step.locals)) {
+  for (const [name, v] of Object.entries(stageLocals(step))) {
     if (v.kind !== "string" || !v.chars || v.chars.length < 2) continue;
     const pointers = ptrs
       .filter((p) => p.value >= 0 && p.value < v.chars!.length)
@@ -183,7 +190,7 @@ export function extractStrings(step: TraceStep, indexVars?: string[]): NamedStri
 /** Sets (and only sets) — maps use MapView instead. */
 export function extractAux(step: TraceStep): NamedAux[] {
   const out: NamedAux[] = [];
-  for (const [name, v] of Object.entries(step.locals)) {
+  for (const [name, v] of Object.entries(stageLocals(step))) {
     if (v.kind === "set") {
       out.push({ name, kind: "set", entries: v.items.map((x) => ({ key: primitiveText(x) })) });
     }
