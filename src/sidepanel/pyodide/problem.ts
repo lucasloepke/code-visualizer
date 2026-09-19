@@ -147,6 +147,8 @@ export function serializedToPlain(v: SerializedValue | null | undefined): unknow
   switch (v.kind) {
     case "primitive":
       return v.value;
+    case "string":
+      return v.value;
     case "array":
       return v.items.map(serializedToPlain);
     case "map": {
@@ -156,6 +158,8 @@ export function serializedToPlain(v: SerializedValue | null | undefined): unknow
       }
       return obj;
     }
+    case "set":
+      return v.items.map(serializedToPlain);
     case "linked_list":
       return v.nodes.map((n) => serializedToPlain(n.value));
     case "tree":

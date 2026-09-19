@@ -3,10 +3,14 @@ import { ArrayView } from "./ArrayView";
 import { LinkedListView } from "./LinkedListView";
 import { MapView } from "./MapView";
 import { TreeView } from "./TreeView";
+import { StringView } from "./StringView";
+import { AuxView } from "./AuxView";
 import {
   extractArrays,
+  extractAux,
   extractLinkedLists,
   extractMaps,
+  extractStrings,
   extractTrees,
   primitiveText,
 } from "./valueUtils";
@@ -29,12 +33,19 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
     return <div className="stage stage--empty">No steps to display.</div>;
   }
 
-  const arrays = extractArrays(step);
+  const arrays = extractArrays(step, run.indexVars);
   const lists = extractLinkedLists(step);
   const trees = extractTrees(step);
+  const strings = extractStrings(step, run.indexVars);
   const maps = extractMaps(step);
+  const aux = extractAux(step);
   const nothing =
-    arrays.length === 0 && lists.length === 0 && trees.length === 0 && maps.length === 0;
+    arrays.length === 0 &&
+    lists.length === 0 &&
+    trees.length === 0 &&
+    strings.length === 0 &&
+    maps.length === 0 &&
+    aux.length === 0;
 
   return (
     <div className={`stage${isException ? " stage--error" : ""}`}>
@@ -44,17 +55,23 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
       {lists.map((l) => (
         <LinkedListView key={l.name} list={l} />
       ))}
+      {strings.map((s) => (
+        <StringView key={s.name} str={s} />
+      ))}
       {arrays.map((a) => (
         <ArrayView key={a.name} array={a} />
       ))}
       {maps.map((m) => (
         <MapView key={m.name} map={m} />
       ))}
+      {aux.map((a) => (
+        <AuxView key={a.name} aux={a} />
+      ))}
 
       {nothing && (
         <div className="stage--empty">
-          No array / map / linked-list / tree in scope at this step. Watch the
-          Variables panel below.
+          No array / map / string / linked-list / tree in scope at this step.
+          Watch the Variables panel below.
         </div>
       )}
 

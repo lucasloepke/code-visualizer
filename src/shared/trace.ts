@@ -4,13 +4,15 @@
 
 /**
  * A serialized Python value. The Python serializer only produces the shapes the
- * demo problems need: primitives, arrays, dicts/hashmaps, singly-linked lists,
- * and binary trees. Anything else falls back to a repr string.
+ * demo problems need: primitives, strings, arrays, dicts/hashmaps, sets,
+ * singly-linked lists, and binary trees. Anything else falls back to a repr string.
  */
 export type SerializedValue =
-  | { kind: "primitive"; value: string | number | boolean | null }
+  | { kind: "primitive"; value: number | boolean | null }
+  | { kind: "string"; value: string; length: number; chars?: string[]; truncated?: boolean }
   | { kind: "array"; items: SerializedValue[] }
   | { kind: "map"; entries: MapEntry[] }
+  | { kind: "set"; items: SerializedValue[] }
   | { kind: "linked_list"; nodes: LinkedListNode[] }
   | { kind: "tree"; root: TreeNode | null }
   | { kind: "repr"; repr: string; type: string };
@@ -73,6 +75,10 @@ export interface TraceRun {
   passed: boolean | null;
   /** Any stdout produced by print() during the run. */
   stdout: string;
+  /** Names of parameters that arrived as strings — candidates for cell rendering. */
+  stringParams: string[];
+  /** Locals used to subscript a string param (found via AST), i.e. real indices. */
+  indexVars: string[];
 }
 
 export const MAX_TRACE_STEPS = 500;

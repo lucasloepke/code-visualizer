@@ -10,6 +10,7 @@ dicts/hashmaps, singly-linked lists, and binary trees. Everything else
 degrades to a repr.
 """
 
+import ast
 import sys
 import io
 import json
@@ -22,6 +23,7 @@ from typing import Any, Deque, Dict, List, Optional, Set, Tuple, Union
 USER_FILE = "<user_solution>"
 MAX_STEPS = 500
 _MAX_NODES = 512  # guard for linked-list / tree serialization
+_MAX_CHARS = 256  # guard for string cell serialization
 
 
 # ---- Data structures matching LeetCode/NeetCode conventions ---------------
@@ -86,7 +88,7 @@ def _is_list_node(o):
 
 
 def _primitive(o):
-    if isinstance(o, bool) or o is None or isinstance(o, (int, str)):
+    if isinstance(o, bool) or o is None or isinstance(o, int):
         return {"kind": "primitive", "value": o}
     if isinstance(o, float):
         if math.isnan(o) or math.isinf(o):
@@ -99,14 +101,22 @@ def serialize(o):
     prim = _primitive(o)
     if prim is not None:
         return prim
-    if isinstance(o, (list, tuple)):
-        return {"kind": "array", "items": [serialize(x) for x in o]}
+    if isinstance(o, str):
+        return _serialize_string(o)
     if isinstance(o, dict):
-        # Preserve insertion order as an entries list (JSON objects aren't ordered).
         return {
             "kind": "map",
-            "entries": [{"key": serialize(k), "value": serialize(v)} for k, v in o.items()],
+            "entries": [
+                {"key": serialize(k), "value": serialize(v)}
+                for k, v in list(o.items())[:_MAX_NODES]
+            ],
         }
+    if isinstance(o, (set, frozenset)):
+        return {"kind": "set", "items": [serialize(x) for x in _stable(o)]}
+    if isinstance(o, deque):
+        return {"kind": "array", "items": [serialize(x) for x in list(o)[:_MAX_NODES]]}
+    if isinstance(o, (list, tuple)):
+        return {"kind": "array", "items": [serialize(x) for x in o]}
     if _is_tree_node(o):
         return {"kind": "tree", "root": _serialize_tree(o, set())}
     if _is_list_node(o):
@@ -116,6 +126,22 @@ def serialize(o):
     except Exception:
         r = "<unrepresentable>"
     return {"kind": "repr", "repr": r, "type": type(o).__name__}
+
+def _serialize_string(s):
+    out = {"kind": "string", "value": s, "length": len(s)}
+    if len(s) <= _MAX_CHARS:
+        out["chars"] = list(s)
+    else:
+        out["truncated"] = True
+    return out
+
+
+def _stable(items):
+    """Sets iterate unpredictably; sort so the visualization doesn't jitter."""
+    try:
+        return sorted(items)
+    except TypeError:
+        return sorted(items, key=repr)
 
 
 def _serialize_linked_list(head):
@@ -196,6 +222,35 @@ def _resolve_target(ns, entry_name):
         return funcs[name], name
     raise RuntimeError("No top-level function or Solution class found in the code.")
 
+def index_vars(user_code, str_param):
+    """Names used to subscript `str_param` — i.e. the real index variables.
+
+    Value-based guessing can't tell an index from a counter (`best` is also an
+    int in [0, len(s)]); subscript position can.
+    """
+    try:
+        tree = ast.parse(user_code)
+    except SyntaxError:
+        return set()
+    names = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Subscript):
+            continue
+        base = node.value
+        if not (isinstance(base, ast.Name) and base.id == str_param):
+            continue
+        sl = node.slice
+        if sl.__class__.__name__ == "Index":  # py<3.9
+            sl = sl.value
+        parts = [sl.lower, sl.upper] if isinstance(sl, ast.Slice) else [sl]
+        for part in parts:
+            if part is None:
+                continue
+            for sub in ast.walk(part):
+                if isinstance(sub, ast.Name):
+                    names.add(sub.id)
+    return names
+
 
 def run_trace(user_code, entry_name, args_json, coercions_json):
     ns = {
@@ -223,6 +278,8 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
                 "stdout": "",
                 "args": [],
                 "entry": entry_name,
+                "stringParams": [],
+                "indexVars": [],
             }
         )
 
@@ -235,6 +292,8 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
             built_args.append(build_linked_list(a))
         elif c == "tree":
             built_args.append(build_tree(a))
+        elif c == "string":
+            built_args.append(a if isinstance(a, str) else str(a))
         else:
             built_args.append(a)
 
@@ -250,8 +309,20 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
                 "stdout": "",
                 "args": [serialize(a) for a in built_args],
                 "entry": entry_name,
+                "stringParams": [],
+                "indexVars": [],
             }
         )
+    try:
+        params = [p.name for p in inspect.signature(target).parameters.values()]
+    except (TypeError, ValueError):
+        params = []
+    str_params = [
+        params[i] for i, a in enumerate(built_args) if isinstance(a, str) and i < len(params)
+    ]
+    idx_vars = set()
+    for p in str_params:
+        idx_vars |= index_vars(user_code, p)
 
     steps = []
     state = {"truncated": False}
@@ -340,5 +411,7 @@ def run_trace(user_code, entry_name, args_json, coercions_json):
             "stdout": stdout_buf.getvalue(),
             "args": [serialize(a) for a in built_args],
             "entry": entry_name,
+            "stringParams": str_params,
+            "indexVars": sorted(idx_vars),
         }
     )
