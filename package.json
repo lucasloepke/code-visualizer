@@ -1,0 +1,29 @@
+{
+  "name": "code-visualizer",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chrome MV3 extension that scrapes coding-problem solutions, runs them client-side with Pyodide, traces execution line-by-line, and renders a step-through animation in the side panel.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "framer-motion": "^11.3.24",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "esbuild": "^0.23.1",
+    "pyodide": "^0.26.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2"
+  }
+}

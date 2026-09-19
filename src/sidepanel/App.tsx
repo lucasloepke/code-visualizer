@@ -1,0 +1,292 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { TestCase } from "../shared/types";
+import type { TraceRun } from "../shared/trace";
+import { MAX_TRACE_STEPS } from "../shared/trace";
+import { executeAll } from "./pyodide/execute";
+import { ensurePyodide } from "./pyodide/runner";
+import { scrapeActiveTab } from "./scrape-client";
+import { SAMPLES } from "./samples";
+import { Controls } from "./components/Controls";
+import { TestCaseTabs } from "./components/TestCaseTabs";
+import { Stage } from "./components/Stage";
+import { CodePanel } from "./components/CodePanel";
+import { LocalsPanel } from "./components/LocalsPanel";
+
+type PyStatus = "idle" | "loading" | "ready" | "error";
+
+export function App() {
+  const [code, setCode] = useState<string>(SAMPLES[0].code);
+  const [signature, setSignature] = useState<string>(SAMPLES[0].signature);
+  const [testCases, setTestCases] = useState<TestCase[]>(SAMPLES[0].testCases);
+
+  const [pyStatus, setPyStatus] = useState<PyStatus>("idle");
+  const [running, setRunning] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+
+  const [runs, setRuns] = useState<TraceRun[] | null>(null);
+  const [activeRun, setActiveRun] = useState(0);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(6);
+
+  // Warm up Pyodide in the background as soon as the panel opens.
+  useEffect(() => {
+    setPyStatus("loading");
+    ensurePyodide()
+      .then(() => setPyStatus("ready"))
+      .catch((err) => {
+        setPyStatus("error");
+        setMessage(`Pyodide failed to load: ${String(err)}`);
+      });
+  }, []);
+
+  const currentRun = runs ? runs[activeRun] : null;
+  const steps = currentRun?.steps ?? [];
+  const currentStep = steps[stepIndex] ?? null;
+
+  // Autoplay ticker (setInterval driving currentStepIndex).
+  const timer = useRef<number | null>(null);
+  useEffect(() => {
+    if (!playing) return;
+    timer.current = window.setInterval(() => {
+      setStepIndex((i) => {
+        if (i >= steps.length - 1) {
+          setPlaying(false);
+          return i;
+        }
+        const next = i + 1;
+        // Freeze autoplay on an exception step.
+        if (steps[next]?.event === "exception") {
+          setPlaying(false);
+        }
+        return next;
+      });
+    }, Math.max(50, 1000 / speed));
+    return () => {
+      if (timer.current) window.clearInterval(timer.current);
+    };
+  }, [playing, speed, steps]);
+
+  const runAll = useCallback(async () => {
+    setRunning(true);
+    setMessage(null);
+    setPlaying(false);
+    try {
+      await ensurePyodide();
+      setPyStatus("ready");
+      const result = await executeAll({ code, signature, testCases });
+      setRuns(result);
+      setActiveRun(0);
+      setStepIndex(0);
+    } catch (err) {
+      setMessage(`Run failed: ${String(err)}`);
+    } finally {
+      setRunning(false);
+    }
+  }, [code, signature, testCases]);
+
+  const doScrape = useCallback(async () => {
+    setMessage(null);
+    setWarnings([]);
+    try {
+      const result = await scrapeActiveTab();
+      if (result.code) setCode(result.code);
+      if (result.functionSignature) setSignature(result.functionSignature);
+      if (result.testCases.length) setTestCases(result.testCases);
+      setWarnings(result.warnings);
+      setMessage(
+        `Scraped ${result.site} — ${result.testCases.length} test case(s)` +
+          (result.code ? "" : " (no code found)"),
+      );
+    } catch (err) {
+      setMessage(String(err instanceof Error ? err.message : err));
+    }
+  }, []);
+
+  const loadSample = useCallback((id: string) => {
+    const s = SAMPLES.find((x) => x.id === id);
+    if (!s) return;
+    setCode(s.code);
+    setSignature(s.signature);
+    setTestCases(s.testCases);
+    setRuns(null);
+    setMessage(null);
+    setWarnings([]);
+  }, []);
+
+  const seek = useCallback((i: number) => {
+    setPlaying(false);
+    setStepIndex(i);
+  }, []);
+  const step = useCallback(
+    (delta: number) => {
+      setPlaying(false);
+      setStepIndex((i) => Math.min(Math.max(0, i + delta), Math.max(0, steps.length - 1)));
+    },
+    [steps.length],
+  );
+
+  const errorLine = currentRun?.error?.line ?? null;
+  const currentLine = currentStep?.line ?? null;
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div>
+          <h1>Code Visualizer</h1>
+          <p className="subtitle">
+            Pyodide status:{" "}
+            <span className={`pystatus pystatus--${pyStatus}`}>{pyStatus}</span>
+          </p>
+        </div>
+      </header>
+
+      <div className="toolbar">
+        <select
+          className="sample-select"
+          onChange={(e) => loadSample(e.target.value)}
+          defaultValue={SAMPLES[0].id}
+          title="Load a built-in demo problem"
+        >
+          {SAMPLES.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <button className="btn" onClick={doScrape} title="Scrape the active NeetCode/LeetCode tab">
+          Scrape tab
+        </button>
+        <button className="btn btn--primary" onClick={runAll} disabled={running || pyStatus === "error"}>
+          {running ? "Running…" : "Run ▶"}
+        </button>
+      </div>
+
+      {message && <div className="banner">{message}</div>}
+      {warnings.length > 0 && (
+        <div className="banner banner--warn">
+          {warnings.map((w, i) => (
+            <div key={i}>⚠ {w}</div>
+          ))}
+        </div>
+      )}
+
+      <details className="editor-details" open={!runs}>
+        <summary>Input (code + test cases)</summary>
+        <label className="field-label">Solution code (Python)</label>
+        <textarea
+          className="code-input"
+          value={code}
+          spellCheck={false}
+          onChange={(e) => setCode(e.target.value)}
+          rows={12}
+        />
+        <label className="field-label">Signature</label>
+        <input
+          className="sig-input"
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+        />
+        <TestCaseEditor testCases={testCases} onChange={setTestCases} />
+      </details>
+
+      {currentRun && (
+        <div className="results">
+          <TestCaseTabs
+            runs={runs!}
+            activeIndex={activeRun}
+            onSelect={(i) => {
+              setActiveRun(i);
+              setStepIndex(0);
+              setPlaying(false);
+            }}
+          />
+
+          {currentRun.truncated && (
+            <div className="banner banner--warn">
+              Infinite loop suspected — stopped after {MAX_TRACE_STEPS} steps.
+            </div>
+          )}
+          {currentRun.error && (
+            <div className="banner banner--error">
+              {currentRun.error.type}: {currentRun.error.message}
+              {currentRun.error.line != null && ` (line ${currentRun.error.line})`}
+            </div>
+          )}
+
+          <Stage run={currentRun} step={currentStep} />
+
+          <Controls
+            stepIndex={stepIndex}
+            stepCount={steps.length}
+            playing={playing}
+            speed={speed}
+            onTogglePlay={() => setPlaying((p) => !p)}
+            onSeek={seek}
+            onStep={step}
+            onSpeed={setSpeed}
+          />
+
+          <LocalsPanel step={currentStep} />
+
+          {currentRun.stdout && (
+            <div className="stdout">
+              <div className="stdout-label">stdout</div>
+              <pre>{currentRun.stdout}</pre>
+            </div>
+          )}
+
+          <CodePanel code={code} currentLine={currentLine} errorLine={errorLine} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TestCaseEditor({
+  testCases,
+  onChange,
+}: {
+  testCases: TestCase[];
+  onChange: (t: TestCase[]) => void;
+}) {
+  const update = (i: number, patch: Partial<TestCase>) => {
+    onChange(testCases.map((tc, idx) => (idx === i ? { ...tc, ...patch } : tc)));
+  };
+  const add = () =>
+    onChange([...testCases, { name: `Example ${testCases.length + 1}`, input: "", expected: "" }]);
+  const remove = (i: number) => onChange(testCases.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="tc-editor">
+      <div className="field-label">
+        Test cases <button className="btn btn--tiny" onClick={add}>+ add</button>
+      </div>
+      {testCases.map((tc, i) => (
+        <div key={i} className="tc-row">
+          <input
+            className="tc-name"
+            value={tc.name}
+            onChange={(e) => update(i, { name: e.target.value })}
+          />
+          <input
+            className="tc-input"
+            placeholder="nums = [2,7,11,15], target = 9"
+            value={tc.input}
+            onChange={(e) => update(i, { input: e.target.value })}
+          />
+          <input
+            className="tc-expected"
+            placeholder="expected (e.g. [0,1])"
+            value={tc.expected ?? ""}
+            onChange={(e) => update(i, { expected: e.target.value })}
+          />
+          <button className="btn btn--tiny" onClick={() => remove(i)} title="Remove">
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -1,1 +1,115 @@
-# code-visualizer
+# Code Visualizer — Chrome Extension (MV3)
+
+Scrapes your Python solution + visible example test cases from a coding-problem
+page (NeetCode is the primary target, LeetCode secondary), runs it **entirely
+client-side** with a bundled [Pyodide](https://pyodide.org) runtime, traces
+execution line-by-line with `sys.settrace`, and renders a step-through animation
+(play / pause / scrub) in a Chrome **side panel** docked next to the page.
+
+No backend. No remote code. Everything runs inside the extension's own pages.
+
+## Quick start
+
+```bash
+npm install
+npm run build      # produces ./dist  (a loadable unpacked extension)
+```
+
+Then in Chrome:
+
+1. Go to `chrome://extensions`, enable **Developer mode**.
+2. **Load unpacked** → select the `dist/` folder.
+3. Open a `neetcode.io/practice` problem (or `leetcode.com/problems/...`).
+4. Click the extension icon to open the side panel.
+5. Click **Scrape tab** to pull the editor code + visible examples, then **Run ▶**.
+
+You can also pick a **built-in sample** from the dropdown and hit **Run** without
+any website — useful for a quick demo and for verifying the pipeline.
+
+## Architecture
+
+| Piece | Where | Notes |
+|---|---|---|
+| Side panel UI | `src/sidepanel/` (React + Framer Motion) | `chrome.sidePanel` — persists when focus returns to the coding tab. |
+| Execution engine | Pyodide (Python→WASM) | **Bundled at build time** into `dist/pyodide/`. MV3 CSP blocks fetching remote scripts, so it must ship in the package. `content_security_policy` includes `wasm-unsafe-eval`. |
+| Tracer | `src/python/tracer.py` | `sys.settrace` captures line/return/exception events → line no, deep-copied `locals()`, stack depth, event type. Caps at **500 steps** (→ "infinite loop suspected"). Emits the whole run as **one JSON array**. |
+| Serializer | `src/python/tracer.py` | Only the shapes the demos need: primitive, array, singly-linked list, binary tree (cycle-guarded). Structures are walked into plain dicts/lists before leaving Python. |
+| Scraping | `src/content/` | `SiteAdapter` interface + `NeetCodeAdapter` (primary) and `LeetCodeAdapter` (secondary). Picked via `matches(location.href)`. |
+| Page bridge | `src/content/page-bridge.ts` | Injected into the page's main world to read the editor's model (Monaco / CodeMirror) off `window`, since content scripts run in an isolated world. |
+| Service worker | `src/background.ts` | Only opens the side panel on toolbar click. |
+
+### Build system
+`npm run build` runs `scripts/build.mjs`, which:
+1. builds the React side panel with Vite → `dist/index.html` + `dist/assets/*`,
+2. bundles `content.js`, `page-bridge.js`, `background.js` with esbuild (stable names the manifest references),
+3. copies `manifest.json` and the Pyodide runtime, and generates placeholder icons.
+
+The Pyodide tracer source is inlined into the panel bundle via a `?raw` import;
+Pyodide itself is loaded at runtime with a dynamic `import()` of the **bundled**
+`pyodide/pyodide.mjs` (never a CDN).
+
+## Site-adapter pattern
+
+```ts
+interface SiteAdapter {
+  matches(url: string): boolean;
+  getCode(): Promise<string>;
+  getTestCases(): Promise<TestCase[]>;
+  getFunctionSignature(): Promise<string>;
+}
+```
+
+Add a site by implementing this and registering it in `src/content/index.ts`.
+Nothing downstream (tracer, serializer, UI) changes.
+
+### ⚠️ Empirical DOM caveat (must confirm on a live page)
+
+The instructions were explicit that NeetCode's editor DOM must be confirmed
+empirically rather than assumed from LeetCode. This build takes the **robust,
+layered** approach the brief called for, but the exact live selectors were not
+verifiable from the build environment, so the adapters are defensive:
+
+- **Code:** primary path reads the editor model via the page bridge
+  (`window.monaco.editor.getModels()[…].getValue()`, with a CodeMirror
+  fallback). If that fails it reconstructs from rendered `.monaco-editor
+  .view-lines` (indentation may be approximate) and **surfaces a warning**.
+- **Test cases:** scraped by scanning the description text for `Input:` / `Output:`
+  pairs (format-driven, not class-name-driven, so it survives DOM churn on both
+  sites). If nothing is found it **warns** rather than failing silently.
+- **Fallback:** the side panel always lets you paste code / edit test cases
+  manually, so a selector mismatch never blocks a demo.
+
+**Action item when you have a live NeetCode page open:** confirm (a) whether
+`window.monaco` is exposed and (b) the container that holds the Example blocks,
+then tighten `src/content/adapters/neetcode.ts`. Any deviation from the
+assumptions above should be reflected there — the warnings in the UI tell you
+when a fallback path was taken.
+
+## Test cases → Python objects
+
+Scraped inputs like `nums = [2,7,11,15], target = 9` or `head = [1,2,3,4,5]` are
+parsed into positional args. Each arg is coerced into the right structure based
+on the parameter name (`head`/`l1`/`lists` → linked list, `root` → tree, other
+arrays → array), matching LeetCode/NeetCode array notation. See
+`src/sidepanel/pyodide/problem.ts`.
+
+## What's implemented (per the MVP build order)
+
+1. ✅ Pyodide bundled + running arbitrary user Python with a `sys.settrace` step array.
+2. ✅ `NeetCodeAdapter` scraping (code + visible test cases) with a page-context bridge.
+3. ✅ Array / two-pointer visualization.
+4. ✅ Linked-list visualization (reversal animates via id-keyed Framer Motion `layout`).
+5. ✅ Stretch: binary-tree view + `LeetCodeAdapter`.
+
+Verified end-to-end in a real browser (Pyodide boots from bundled files; Two
+Sum, Valid Palindrome, Reverse Linked List, Invert Tree all run and animate).
+
+## Out of scope
+Non-Python languages · hidden/submit-mode test cases · any backend · multi-run history.
+
+## Dev
+
+```bash
+npm run typecheck
+python3 scripts/test_tracer.py   # standalone tracer sanity check (no browser)
+```

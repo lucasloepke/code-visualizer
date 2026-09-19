@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Code Visualizer",
+  "version": "0.1.0",
+  "description": "Scrape your coding-problem solution, run it client-side with Pyodide, and step through a line-by-line animation in the side panel.",
+  "permissions": ["sidePanel", "scripting", "activeTab", "tabs", "clipboardRead", "storage"],
+  "host_permissions": ["https://neetcode.io/*", "https://leetcode.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Code Visualizer"
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://neetcode.io/*", "https://leetcode.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page-bridge.js", "pyodide/*"],
+      "matches": ["https://neetcode.io/*", "https://leetcode.com/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
