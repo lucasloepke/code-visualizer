@@ -293,18 +293,37 @@ class _StepCap(Exception):
 
 def _resolve_target(ns, entry_name):
     """Locate the callable to run: a Solution method or a top-level function."""
-    Solution = ns.get("Solution")
-    if Solution is not None and inspect.isclass(Solution):
-        inst = Solution()
+    for cls_name in ("Solution", "Codec"):
+        Cls = ns.get(cls_name)
+        if Cls is None or not inspect.isclass(Cls):
+            continue
+        inst = Cls()
         methods = [
             name
             for name, _ in inspect.getmembers(inst, predicate=inspect.ismethod)
             if not name.startswith("_")
         ]
+        method_set = set(methods)
+        # Encode and Decode Strings: the platform round-trips decode(encode(strs)).
+        if "encode" in method_set and "decode" in method_set:
+            encode_fn = inst.encode
+            decode_fn = inst.decode
+
+            def roundtrip(*args, **kwargs):
+                return decode_fn(encode_fn(*args, **kwargs))
+
+            roundtrip.__name__ = "encode/decode"
+            try:
+                roundtrip.__signature__ = inspect.signature(encode_fn)
+            except (TypeError, ValueError):
+                pass
+            return roundtrip, "encode/decode"
+
         name = entry_name if entry_name in methods else (methods[0] if methods else None)
         if name is None:
-            raise RuntimeError("Solution class has no public method to run.")
+            raise RuntimeError(f"{cls_name} class has no public method to run.")
         return getattr(inst, name), name
+
     funcs = {
         k: v
         for k, v in ns.items()
@@ -315,7 +334,7 @@ def _resolve_target(ns, entry_name):
     if funcs:
         name = next(iter(funcs))
         return funcs[name], name
-    raise RuntimeError("No top-level function or Solution class found in the code.")
+    raise RuntimeError("No top-level function or Solution/Codec class found in the code.")
 
 def index_vars(user_code, str_param):
     """Names used to subscript `str_param` — i.e. the real index variables.
