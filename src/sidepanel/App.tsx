@@ -129,7 +129,7 @@ export function App() {
         questionRoute
           ? `Scraped ${result.site} — ${result.testCases.length} test case(s)` +
             (result.code ? "" : " (no code found)")
-          : "Go to the Questions screen to test these examples.",
+          : "Navigate to questions tab to begin code visualization.",
       );
       setScraping(false);
       // Kick off the visualization immediately with the freshly scraped values
