@@ -132,4 +132,29 @@ def solve(n):
 '''
 show("infinite_loop", tracer.run_trace(inf, "solve", json.dumps([0]), json.dumps(["raw"])))
 
+# 6) deque available without an explicit import (LeetCode/NeetCode convention)
+bfs = '''
+class Solution:
+    def levelOrder(self, root):
+        if not root:
+            return []
+        q = deque([root])
+        out = []
+        while q:
+            node = q.popleft()
+            out.append(node.val)
+            if node.left:
+                q.append(node.left)
+            if node.right:
+                q.append(node.right)
+        return out
+'''
+out = json.loads(
+    tracer.run_trace(bfs, "levelOrder", json.dumps([[1, 2, 3]]), json.dumps(["tree"]))
+)
+print("\n=== deque_no_import ===")
+print("error:", out["error"], "result:", out["result"])
+assert out["error"] is None, out["error"]
+assert out["result"]["kind"] == "array"
+
 print("\nALL TRACER TESTS RAN")

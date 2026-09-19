@@ -17,13 +17,58 @@ import json
 import math
 import inspect
 import contextlib
-from collections import deque
+import heapq
+import bisect
+import itertools
+import functools
+from collections import Counter, OrderedDict, defaultdict, deque
 from typing import Any, Deque, Dict, List, Optional, Set, Tuple, Union
 
 USER_FILE = "<user_solution>"
 MAX_STEPS = 500
 _MAX_NODES = 512  # guard for linked-list / tree serialization
 _MAX_CHARS = 256  # guard for string cell serialization
+
+# Names LeetCode / NeetCode make available without an explicit import in the
+# editor. Injected into the user namespace before exec so scraped solutions
+# that omit `from collections import deque` (etc.) still run.
+_PRELOADED = {
+    "deque": deque,
+    "defaultdict": defaultdict,
+    "Counter": Counter,
+    "OrderedDict": OrderedDict,
+    "heappush": heapq.heappush,
+    "heappop": heapq.heappop,
+    "heapify": heapq.heapify,
+    "nlargest": heapq.nlargest,
+    "nsmallest": heapq.nsmallest,
+    "bisect_left": bisect.bisect_left,
+    "bisect_right": bisect.bisect_right,
+    "insort": bisect.insort,
+    "math": math,
+    "inf": math.inf,
+    "gcd": math.gcd,
+    "sqrt": math.sqrt,
+    "ceil": math.ceil,
+    "floor": math.floor,
+    "log": math.log,
+    "log2": getattr(math, "log2", lambda x: math.log(x, 2)),
+    "lru_cache": functools.lru_cache,
+    "cache": getattr(functools, "cache", functools.lru_cache(None)),
+    "reduce": functools.reduce,
+    "combinations": itertools.combinations,
+    "permutations": itertools.permutations,
+    "product": itertools.product,
+    "accumulate": itertools.accumulate,
+    "Any": Any,
+    "Deque": Deque,
+    "Dict": Dict,
+    "List": List,
+    "Optional": Optional,
+    "Set": Set,
+    "Tuple": Tuple,
+    "Union": Union,
+}
 
 
 # ---- Data structures matching LeetCode/NeetCode conventions ---------------
@@ -254,16 +299,9 @@ def index_vars(user_code, str_param):
 
 def run_trace(user_code, entry_name, args_json, coercions_json):
     ns = {
+        **_PRELOADED,
         "ListNode": ListNode,
         "TreeNode": TreeNode,
-        "Any": Any,
-        "Deque": Deque,
-        "Dict": Dict,
-        "List": List,
-        "Optional": Optional,
-        "Set": Set,
-        "Tuple": Tuple,
-        "Union": Union,
     }
     try:
         compiled = compile(user_code, USER_FILE, "exec")
