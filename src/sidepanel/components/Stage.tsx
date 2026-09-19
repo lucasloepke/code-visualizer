@@ -1,16 +1,20 @@
 import type { SerializedValue, TraceRun, TraceStep } from "../../shared/trace";
 import { ArrayView } from "./ArrayView";
 import { LinkedListView } from "./LinkedListView";
+import { MapView } from "./MapView";
 import { TreeView } from "./TreeView";
 import {
   extractArrays,
   extractLinkedLists,
+  extractMaps,
   extractTrees,
   primitiveText,
 } from "./valueUtils";
 
 function ResultValue({ value }: { value: SerializedValue }) {
   if (value.kind === "array") return <ArrayView array={{ name: "return", items: value.items, pointers: [] }} />;
+  if (value.kind === "map")
+    return <MapView map={{ name: "return", entries: value.entries, highlightedKey: null }} />;
   if (value.kind === "linked_list")
     return <LinkedListView list={{ name: "return", nodes: value.nodes, pointerByNodeId: new Map() }} />;
   if (value.kind === "tree" && value.root)
@@ -28,7 +32,9 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
   const arrays = extractArrays(step);
   const lists = extractLinkedLists(step);
   const trees = extractTrees(step);
-  const nothing = arrays.length === 0 && lists.length === 0 && trees.length === 0;
+  const maps = extractMaps(step);
+  const nothing =
+    arrays.length === 0 && lists.length === 0 && trees.length === 0 && maps.length === 0;
 
   return (
     <div className={`stage${isException ? " stage--error" : ""}`}>
@@ -41,11 +47,14 @@ export function Stage({ run, step }: { run: TraceRun; step: TraceStep | null }) 
       {arrays.map((a) => (
         <ArrayView key={a.name} array={a} />
       ))}
+      {maps.map((m) => (
+        <MapView key={m.name} map={m} />
+      ))}
 
       {nothing && (
         <div className="stage--empty">
-          No array / linked-list / tree in scope at this step. Watch the Variables
-          panel below.
+          No array / map / linked-list / tree in scope at this step. Watch the
+          Variables panel below.
         </div>
       )}
 

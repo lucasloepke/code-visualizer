@@ -149,6 +149,13 @@ export function serializedToPlain(v: SerializedValue | null | undefined): unknow
       return v.value;
     case "array":
       return v.items.map(serializedToPlain);
+    case "map": {
+      const obj: Record<string, unknown> = {};
+      for (const e of v.entries) {
+        obj[String(serializedToPlain(e.key))] = serializedToPlain(e.value);
+      }
+      return obj;
+    }
     case "linked_list":
       return v.nodes.map((n) => serializedToPlain(n.value));
     case "tree":

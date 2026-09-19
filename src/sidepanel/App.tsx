@@ -11,6 +11,7 @@ import { TestCaseTabs } from "./components/TestCaseTabs";
 import { Stage } from "./components/Stage";
 import { CodePanel } from "./components/CodePanel";
 import { LocalsPanel } from "./components/LocalsPanel";
+import { ReloadIcon } from "./components/ReloadIcon";
 
 type PyStatus = "idle" | "loading" | "ready" | "error";
 
@@ -106,10 +107,13 @@ export function App() {
     [runWith, code, signature, testCases, canTest],
   );
 
-  const doScrape = useCallback(async () => {
+  const [showScrapeProgress, setShowScrapeProgress] = useState(false);
+
+  const doScrape = useCallback(async (opts?: { showProgress?: boolean }) => {
     setMessage(null);
     setWarnings([]);
     setScraping(true);
+    if (opts?.showProgress) setShowScrapeProgress(true);
     try {
       const result = await scrapeActiveTab();
       const questionRoute = result.site !== "neetcode" || /\/question(?:\/|$)/.test(new URL(result.url).pathname);
@@ -131,7 +135,6 @@ export function App() {
             (result.code ? "" : " (no code found)")
           : "Navigate to questions tab to begin code visualization.",
       );
-      setScraping(false);
       // Kick off the visualization immediately with the freshly scraped values
       // (state setters above haven't flushed yet, so pass them explicitly).
       if (result.code && questionRoute) {
@@ -139,17 +142,21 @@ export function App() {
       }
     } catch (err) {
       setMessage(String(err instanceof Error ? err.message : err));
+    } finally {
       setScraping(false);
+      setShowScrapeProgress(false);
     }
   }, [runWith, code, signature, testCases]);
 
   // Auto-scrape the active problem tab as soon as the panel opens, so the
   // user's own code is loaded and ready without pressing anything.
+  // Only the first scrape shows the progress banner — re-scrape is usually
+  // fast enough that the banner just flashes.
   const didAutoScrape = useRef(false);
   useEffect(() => {
     if (didAutoScrape.current) return;
     didAutoScrape.current = true;
-    void doScrape();
+    void doScrape({ showProgress: true });
   }, [doScrape]);
 
   // Close the ⋮ menu on an outside click.
@@ -218,16 +225,7 @@ export function App() {
             title="Re-scrape the active tab"
             aria-label="Re-scrape the active tab"
           >
-            <svg
-              className="icon"
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
-            </svg>
+            <ReloadIcon />
           </button>
           <div className="menu-wrap" ref={menuRef}>
             <button
@@ -273,13 +271,13 @@ export function App() {
         </div>
       </header>
 
-      {scraping && (
+      {showScrapeProgress && (
         <div className="banner banner--scraping">
           <span className="spinner" aria-hidden="true" />
           Scraping the active tab…
         </div>
       )}
-      {!scraping && message && <div className="banner">{message}</div>}
+      {!showScrapeProgress && message && <div className="banner">{message}</div>}
       {warnings.length > 0 && (
         <div className="banner banner--warn">
           {warnings.map((w, i) => (
@@ -340,8 +338,6 @@ export function App() {
             </div>
           )}
 
-          <Stage run={currentRun} step={currentStep} />
-
           <Controls
             stepIndex={stepIndex}
             stepCount={steps.length}
@@ -352,6 +348,8 @@ export function App() {
             onStep={step}
             onSpeed={setSpeed}
           />
+
+          <Stage run={currentRun} step={currentStep} />
 
           <LocalsPanel step={currentStep} />
 

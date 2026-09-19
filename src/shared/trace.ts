@@ -4,15 +4,21 @@
 
 /**
  * A serialized Python value. The Python serializer only produces the shapes the
- * demo problems need: primitives, arrays, singly-linked lists, and binary trees.
- * Anything else falls back to a repr string.
+ * demo problems need: primitives, arrays, dicts/hashmaps, singly-linked lists,
+ * and binary trees. Anything else falls back to a repr string.
  */
 export type SerializedValue =
   | { kind: "primitive"; value: string | number | boolean | null }
   | { kind: "array"; items: SerializedValue[] }
+  | { kind: "map"; entries: MapEntry[] }
   | { kind: "linked_list"; nodes: LinkedListNode[] }
   | { kind: "tree"; root: TreeNode | null }
   | { kind: "repr"; repr: string; type: string };
+
+export interface MapEntry {
+  key: SerializedValue;
+  value: SerializedValue;
+}
 
 export interface LinkedListNode {
   /** Stable identity (Python id()) so Framer Motion can key/animate nodes. */

@@ -1,3 +1,5 @@
+import { ReloadIcon } from "./ReloadIcon";
+
 interface ControlsProps {
   stepIndex: number;
   stepCount: number;
@@ -27,8 +29,20 @@ export function Controls({
         <button className="btn" onClick={() => onStep(-1)} disabled={stepIndex <= 0} title="Previous step">
           ◀
         </button>
-        <button className="btn btn--primary" onClick={onTogglePlay} disabled={stepCount === 0}>
-          {playing ? "❚❚ Pause" : atEnd ? "↻ Replay" : "▶ Play"}
+        <button
+          className="btn btn--primary btn--replay"
+          onClick={onTogglePlay}
+          disabled={stepCount === 0}
+        >
+          {playing ? (
+            "❚❚ Pause"
+          ) : atEnd ? (
+            <>
+              <ReloadIcon size={14} /> Replay
+            </>
+          ) : (
+            "▶ Play"
+          )}
         </button>
         <button className="btn" onClick={() => onStep(1)} disabled={stepIndex >= max} title="Next step">
           ▶

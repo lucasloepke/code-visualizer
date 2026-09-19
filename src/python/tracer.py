@@ -6,7 +6,8 @@ returns the ENTIRE run as a single JSON string. No streaming, no callbacks --
 the side panel parses this blob once and replays it locally.
 
 Only the data shapes the demo problems need are serialized: primitives, arrays,
-singly-linked lists, and binary trees. Everything else degrades to a repr.
+dicts/hashmaps, singly-linked lists, and binary trees. Everything else
+degrades to a repr.
 """
 
 import sys
@@ -100,6 +101,12 @@ def serialize(o):
         return prim
     if isinstance(o, (list, tuple)):
         return {"kind": "array", "items": [serialize(x) for x in o]}
+    if isinstance(o, dict):
+        # Preserve insertion order as an entries list (JSON objects aren't ordered).
+        return {
+            "kind": "map",
+            "entries": [{"key": serialize(k), "value": serialize(v)} for k, v in o.items()],
+        }
     if _is_tree_node(o):
         return {"kind": "tree", "root": _serialize_tree(o, set())}
     if _is_list_node(o):
