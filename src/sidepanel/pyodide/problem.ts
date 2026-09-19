@@ -163,23 +163,43 @@ export function serializedToPlain(v: SerializedValue | null | undefined): unknow
     case "linked_list":
       return v.nodes.map((n) => serializedToPlain(n.value));
     case "tree":
-      return v.root ? treeToPlain(v.root) : null;
+      // LeetCode/NeetCode print trees as level-order arrays (with trailing
+      // nulls omitted), same as the scraped expected output.
+      return treeToLevelOrder(v.root);
     case "repr":
       return v.repr;
   }
 }
 
-function treeToPlain(node: NonNullable<Extract<SerializedValue, { kind: "tree" }>["root"]>): unknown {
-  return {
-    value: serializedToPlain(node.value),
-    left: node.left ? treeToPlain(node.left) : null,
-    right: node.right ? treeToPlain(node.right) : null,
-  };
+/** BFS level-order array matching LeetCode's tree notation. */
+function treeToLevelOrder(
+  root: Extract<SerializedValue, { kind: "tree" }>["root"],
+): unknown[] {
+  if (!root) return [];
+  type N = NonNullable<typeof root>;
+  const out: unknown[] = [];
+  const queue: (N | null)[] = [root];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    if (node == null) {
+      out.push(null);
+      continue;
+    }
+    out.push(serializedToPlain(node.value));
+    queue.push(node.left);
+    queue.push(node.right);
+  }
+  while (out.length > 0 && out[out.length - 1] == null) out.pop();
+  return out;
 }
 
 function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a === "number" && typeof b === "number") return a === b;
+  // Empty tree returns None; scraped expected is often [].
+  if ((a == null && Array.isArray(b) && b.length === 0) || (b == null && Array.isArray(a) && a.length === 0)) {
+    return true;
+  }
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
     return a.every((x, i) => deepEqual(x, b[i]));
@@ -193,7 +213,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
 
 /**
  * Compare a run result to the scraped expected output.
- * Returns null when there's nothing comparable (e.g. no expected, or a tree).
+ * Returns null when there's nothing comparable (e.g. no expected).
  */
 export function compareResult(
   result: SerializedValue | null | undefined,
