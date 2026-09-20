@@ -37,6 +37,19 @@ export type ContentToPanelMessage =
   | { type: "SCRAPE_RESULT"; result: ScrapeResult }
   | { type: "SCRAPE_ERROR"; error: string };
 
+/** Content → background: SPA or full navigation changed the tab URL. */
+export type ContentToBackgroundMessage = {
+  type: "TAB_URL_CHANGED";
+  url: string;
+};
+
+/** Background → side panel: active problem changed; re-scrape + run. */
+export type BackgroundToPanelMessage = {
+  type: "PROBLEM_CHANGED";
+  tabId: number;
+  url: string;
+};
+
 /** Runtime message routed through the background worker. */
 export type RuntimeMessage =
   | { channel: "panel->content"; tabId: number; payload: PanelToContentMessage }

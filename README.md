@@ -26,10 +26,11 @@ Then in Chrome:
    active tab (editor code + visible examples) and runs the visualization.
 5. Use the step controls to play / pause / scrub through the trace.
 
-The **↻** button re-scrapes the active tab. The **⋮ menu** (top-right) holds
-fallbacks: a **Debug mode** toggle that reveals the raw code / test-case editor
-(and a manual **Run** button), plus a list of **built-in examples** you can load
-without any website — useful for a quick demo and for verifying the pipeline.
+The **↻** button re-scrapes the active tab. Navigating between problems (e.g.
+NeetCode’s next/prev arrows) **auto-refreshes** the panel. Leaving a problem
+page closes the panel by default — toggle **Don’t close off-problem** in the
+**⋮ menu** to keep it open. That menu also holds **Debug mode** (raw code /
+test-case editor + manual **Run**) and **built-in examples**.
 
 ## Architecture
 
