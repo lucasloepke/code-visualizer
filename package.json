@@ -3,6 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "description": "Dynamically visualize LeetCode executions, step-by-step.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lucasloepke/leetvision.git"
+  },
+  "homepage": "https://github.com/lucasloepke/leetvision",
+  "bugs": {
+    "url": "https://github.com/lucasloepke/leetvision/issues"
+  },
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

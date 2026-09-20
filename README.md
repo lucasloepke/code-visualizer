@@ -2,6 +2,8 @@
 
 Dynamically visualize LeetCode / NeetCode executions, step-by-step.
 
+**Repo:** [github.com/lucasloepke/leetvision](https://github.com/lucasloepke/leetvision)
+
 Scrapes your Python solution + visible example test cases from a coding-problem
 page (NeetCode is the primary target, LeetCode secondary), runs it **entirely
 client-side** with a bundled [Pyodide](https://pyodide.org) runtime, traces
@@ -13,6 +15,8 @@ No backend. No remote code. Everything runs inside the extension's own pages.
 ## Quick start
 
 ```bash
+git clone https://github.com/lucasloepke/leetvision.git
+cd leetvision
 npm install
 npm run build      # produces ./dist  (a loadable unpacked extension)
 ```
