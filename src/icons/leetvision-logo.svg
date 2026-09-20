@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="LeetVision">
+  <!-- Flush rounded app-icon background -->
+  <!-- Transparent outside the rounded rect (rx ≈ 28% of edge) -->
+  <rect width="512" height="512" rx="144" ry="144" fill="#0f1117"/>
+  <!-- Eye outline (almond) -->
+  <path
+    d="M68 256C120 150 200 112 256 112s136 38 188 144c-52 106-132 144-188 144S120 362 68 256Z"
+    fill="none"
+    stroke="#818cf8"
+    stroke-width="28"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+  <!-- Pupil -->
+  <circle cx="256" cy="256" r="42" fill="#818cf8"/>
+</svg>

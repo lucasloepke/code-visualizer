@@ -48,7 +48,7 @@ test-case editor + manual **Run**) and **built-in examples**.
 `npm run build` runs `scripts/build.mjs`, which:
 1. builds the React side panel with Vite → `dist/index.html` + `dist/assets/*`,
 2. bundles `content.js`, `page-bridge.js`, `background.js` with esbuild (stable names the manifest references),
-3. copies `manifest.json` and the Pyodide runtime, and generates placeholder icons.
+3. copies `manifest.json`, the Pyodide runtime, and the LeetVision icons.
 
 The Pyodide tracer source is inlined into the panel bundle via a `?raw` import;
 Pyodide itself is loaded at runtime with a dynamic `import()` of the **bundled**
