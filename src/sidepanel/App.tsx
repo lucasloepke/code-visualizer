@@ -12,6 +12,12 @@ import { Stage } from "./components/Stage";
 import { CodePanel } from "./components/CodePanel";
 import { LocalsPanel } from "./components/LocalsPanel";
 import { ReloadIcon } from "./components/ReloadIcon";
+import type { BackgroundToPanelMessage } from "../shared/types";
+import {
+  KEEP_PANEL_ON_LEAVE_DEFAULT,
+  getKeepPanelOnLeave,
+  setKeepPanelOnLeave,
+} from "../shared/settings";
 
 type PyStatus = "idle" | "loading" | "ready" | "error";
 
@@ -29,6 +35,7 @@ export function App() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [keepPanelOnLeave, setKeepPanelOnLeaveState] = useState(KEEP_PANEL_ON_LEAVE_DEFAULT);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [runs, setRuns] = useState<TraceRun[] | null>(null);
@@ -159,6 +166,21 @@ export function App() {
     void doScrape({ showProgress: true });
   }, [doScrape]);
 
+  // Persist "keep panel when leaving problems" preference.
+  useEffect(() => {
+    void getKeepPanelOnLeave().then(setKeepPanelOnLeaveState);
+  }, []);
+
+  // Problem→problem navigation (NeetCode arrows, etc.): auto re-scrape + run.
+  useEffect(() => {
+    const onMessage = (message: BackgroundToPanelMessage) => {
+      if (message?.type !== "PROBLEM_CHANGED") return;
+      void doScrape();
+    };
+    chrome.runtime.onMessage.addListener(onMessage);
+    return () => chrome.runtime.onMessage.removeListener(onMessage);
+  }, [doScrape]);
+
   // Close the ⋮ menu on an outside click.
   useEffect(() => {
     if (!menuOpen) return;
@@ -170,6 +192,11 @@ export function App() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [menuOpen]);
+
+  const onKeepPanelToggle = useCallback((checked: boolean) => {
+    setKeepPanelOnLeaveState(checked);
+    void setKeepPanelOnLeave(checked);
+  }, []);
 
   const loadSample = useCallback((id: string) => {
     const s = SAMPLES.find((x) => x.id === id);
@@ -246,6 +273,17 @@ export function App() {
                     onChange={(e) => setDebugMode(e.target.checked)}
                   />
                   Debug mode
+                </label>
+                <label
+                  className="menu-item menu-item--toggle"
+                  title="When off (default), the side panel closes if you navigate away from a problem page"
+                >
+                  <input
+                    type="checkbox"
+                    checked={keepPanelOnLeave}
+                    onChange={(e) => onKeepPanelToggle(e.target.checked)}
+                  />
+                  Don&apos;t close off-problem
                 </label>
 
                 <div className="menu-divider" />
