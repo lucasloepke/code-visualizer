@@ -2,7 +2,16 @@
 
 Dynamically visualize LeetCode / NeetCode executions, step-by-step.
 
+Built for **[SteelHacks XIII (2026)](https://steelhacks.org/)**.
+
+**Chrome Web Store:** [chromewebstore.google.com/detail/leetvision](https://chromewebstore.google.com/detail/leetvision/oncedhloihenbjclhebncagkkigdielf)  
 **Repo:** [github.com/lucasloepke/leetvision](https://github.com/lucasloepke/leetvision)
+
+### Team
+
+- [Sean Morisoli](https://github.com/seanmorisoli)
+- [Ansel Gunther](https://github.com/asg149)
+- [Lucas Loepke](https://github.com/lucasloepke)
 
 Scrapes your Python solution + visible example test cases from a coding-problem
 page (NeetCode is the primary target, LeetCode secondary), runs it **entirely
