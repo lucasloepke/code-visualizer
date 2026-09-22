@@ -9,9 +9,9 @@ Built for **[SteelHacks XIII (2026)](https://steelhacks.org/)**.
 
 ### Team
 
-- [Sean Morisoli](https://github.com/seanmorisoli)
-- [Ansel Gunther](https://github.com/asg149)
-- [Lucas Loepke](https://github.com/lucasloepke)
+- Sean Morisoli ([github.com/seanmorisoli](https://github.com/seanmorisoli))
+- Ansel Gunther ([github.com/asg149](https://github.com/asg149))
+- Lucas Loepke ([github.com/lucasloepke](https://github.com/lucasloepke))
 
 Scrapes your Python solution + visible example test cases from a coding-problem
 page (NeetCode is the primary target, LeetCode secondary), runs it **entirely
